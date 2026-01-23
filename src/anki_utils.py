@@ -56,7 +56,7 @@ def get_field_content(note_or_id, field_name):
     
     return text.strip()
 
-def save_image_to_note(note_id, image_data, field_name, mode, search_term):
+def save_image_to_note(note_id, image_data, field_name, mode, search_term, image_width=None):
     """
     Saves image data to Anki's media collection and updates the specified note field.
     """
@@ -83,7 +83,10 @@ def save_image_to_note(note_id, image_data, field_name, mode, search_term):
     filename = mw.col.media.write_data(suggested_filename, image_data)
     
     # 4. Construct HTML tag
-    img_tag = f'<img src="{filename}">'
+    if image_width:
+        img_tag = f'<img src="{filename}" style="max-width: {image_width}px;">'
+    else:
+        img_tag = f'<img src="{filename}">'
     
     # 4. Update the note
     try:

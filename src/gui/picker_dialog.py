@@ -338,7 +338,8 @@ class PickerDialog(QDialog):
             image_data=image_data,
             field_name=field_name,
             mode=config.get("mode"),
-            search_term=self.search_input.text()
+            search_term=self.search_input.text(),
+            image_width=config.get("image_width")
         )
         
         if success:

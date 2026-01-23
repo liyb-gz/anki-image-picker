@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
     QComboBox, QRadioButton, QButtonGroup, 
-    QPushButton, QDialogButtonBox
+    QPushButton, QDialogButtonBox, QSpinBox
 )
 
 class ConfigDialog(QDialog):
@@ -46,6 +46,15 @@ class ConfigDialog(QDialog):
             
         target_layout.addWidget(self.target_combo)
         layout.addLayout(target_layout)
+
+        # Image Width
+        width_layout = QHBoxLayout()
+        width_layout.addWidget(QLabel("Max Image Width (px):"))
+        self.width_spin = QSpinBox()
+        self.width_spin.setRange(50, 2000)
+        self.width_spin.setValue(320)
+        width_layout.addWidget(self.width_spin)
+        layout.addLayout(width_layout)
 
         # Mode
         layout.addWidget(QLabel("Update Mode:"))
@@ -92,6 +101,7 @@ class ConfigDialog(QDialog):
         return {
             "source_field": self.source_combo.currentText(),
             "target_field": self.target_combo.currentText(),
+            "image_width": self.width_spin.value(),
             "mode": mode_map.get(checked_id, "replace")
         }
 
