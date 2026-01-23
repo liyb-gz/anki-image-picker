@@ -6,11 +6,22 @@ def get_field_names(note_ids):
     """
     from aqt import mw
     field_names = set()
+    model_cache = {}
+    
     for nid in note_ids:
-        note = mw.col.get_note(nid)
-        model = note.model()
-        for field in model['flds']:
-            field_names.add(field['name'])
+        try:
+            note = mw.col.get_note(nid)
+        except Exception:
+            continue
+            
+        mid = note.mid
+        if mid not in model_cache:
+            model = note.note_type()
+            model_cache[mid] = [f['name'] for f in model['flds']]
+            
+        for name in model_cache[mid]:
+            field_names.add(name)
+            
     return sorted(list(field_names))
 
 def get_field_content(note_id, field_name):

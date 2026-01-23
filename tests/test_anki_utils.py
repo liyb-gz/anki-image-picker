@@ -17,12 +17,16 @@ def test_get_field_names():
     # Mock note 1
     note1 = MagicMock()
     mock_model1 = {'flds': [{'name': 'Front'}, {'name': 'Back'}]}
-    note1.model.return_value = mock_model1
+    # Modernize mock
+    note1.note_type.return_value = mock_model1
+    note1.mid = 101 # Model ID
     
     # Mock note 2
     note2 = MagicMock()
     mock_model2 = {'flds': [{'name': 'Front'}, {'name': 'Back'}, {'name': 'Image'}]}
-    note2.model.return_value = mock_model2
+    # Modernize mock
+    note2.note_type.return_value = mock_model2
+    note2.mid = 102
     
     mock_mw.col.get_note.side_effect = lambda id: note1 if id == 1 else note2
     
