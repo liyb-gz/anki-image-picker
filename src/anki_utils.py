@@ -56,7 +56,7 @@ def get_field_content(note_or_id, field_name):
     
     return text.strip()
 
-def save_image_to_note(note_id, image_data, field_name, mode, search_term, image_width=None):
+def save_image_to_note(note_id, image_data, field_name, mode, search_term, image_width=None, max_height=None):
     """
     Saves image data to Anki's media collection and updates the specified note field.
     """
@@ -83,8 +83,15 @@ def save_image_to_note(note_id, image_data, field_name, mode, search_term, image
     filename = mw.col.media.write_data(suggested_filename, image_data)
     
     # 4. Construct HTML tag
+    style_parts = []
     if image_width:
-        img_tag = f'<img src="{filename}" style="max-width: {image_width}px;">'
+        style_parts.append(f"max-width: {image_width}px;")
+    if max_height:
+        style_parts.append(f"max-height: {max_height}px;")
+    
+    if style_parts:
+        style_str = " ".join(style_parts)
+        img_tag = f'<img src="{filename}" style="{style_str}">'
     else:
         img_tag = f'<img src="{filename}">'
     
@@ -155,6 +162,6 @@ class ConfigManager:
         config = self.get_all_config()
         return {
             "search_suffix": config.get("search_suffix", ""),
-            "max_width": config.get("max_width", 320),
+            "image_width": config.get("image_width", 320),
             "max_height": config.get("max_height", 320)
         }

@@ -166,3 +166,34 @@ def test_extension_detection():
     save_image_to_note(1, b"random_data", "Field", "replace", "term")
     args, _ = mock_mw.col.media.write_data.call_args
     assert args[0].endswith(".jpg")
+
+def test_save_image_with_dimensions():
+    from src.anki_utils import save_image_to_note
+    mock_mw = MagicMock()
+    import aqt
+    aqt.mw = mock_mw
+    
+    note = MagicMock()
+    note.__contains__.return_value = True
+    note.__getitem__.return_value = ""
+    mock_mw.col.get_note.return_value = note
+    mock_mw.col.media.write_data.return_value = "saved_filename.jpg"
+    
+    # Width and Height
+    save_image_to_note(1, b"data", "Field", "replace", "term", image_width=400, max_height=500)
+    note.__setitem__.assert_called()
+    call_args = note.__setitem__.call_args[0]
+    img_tag = call_args[1]
+    assert 'style="max-width: 400px; max-height: 500px;"' in img_tag
+    
+    # Only Width
+    note.__setitem__.reset_mock()
+    save_image_to_note(1, b"data", "Field", "replace", "term", image_width=400)
+    img_tag = note.__setitem__.call_args[0][1]
+    assert 'style="max-width: 400px;"' in img_tag
+    
+    # Only Height
+    note.__setitem__.reset_mock()
+    save_image_to_note(1, b"data", "Field", "replace", "term", max_height=500)
+    img_tag = note.__setitem__.call_args[0][1]
+    assert 'style="max-height: 500px;"' in img_tag

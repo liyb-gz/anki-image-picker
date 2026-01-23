@@ -1,17 +1,18 @@
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
     QComboBox, QRadioButton, QButtonGroup, 
-    QPushButton, QDialogButtonBox, QSpinBox
+    QPushButton, QDialogButtonBox, QSpinBox, QLineEdit
 )
 
 class ConfigDialog(QDialog):
     """
     Dialog for configuring which fields to use for image picking and how to update them.
     """
-    def __init__(self, fields, parent=None):
+    def __init__(self, fields, initial_config=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Anki Image Picker Configuration")
         self.fields = fields
+        self.initial_config = initial_config or {}
         self.init_ui()
 
     def init_ui(self):
@@ -22,39 +23,65 @@ class ConfigDialog(QDialog):
         source_layout.addWidget(QLabel("Source Field (Text to search):"))
         self.source_combo = QComboBox()
         self.source_combo.addItems(self.fields)
+        
+        # Initial value
+        source_val = self.initial_config.get("source_field")
+        if source_val and source_val in self.fields:
+            self.source_combo.setCurrentText(source_val)
+            
         source_layout.addWidget(self.source_combo)
         layout.addLayout(source_layout)
+
+        # Search Suffix
+        suffix_layout = QHBoxLayout()
+        suffix_layout.addWidget(QLabel("Search Suffix (e.g. ' anatomical'):"))
+        self.suffix_edit = QLineEdit()
+        self.suffix_edit.setText(self.initial_config.get("search_suffix", ""))
+        suffix_layout.addWidget(self.suffix_edit)
+        layout.addLayout(suffix_layout)
 
         # Target Field
         target_layout = QHBoxLayout()
         target_layout.addWidget(QLabel("Target Field (Where to put image):"))
         self.target_combo = QComboBox()
         self.target_combo.addItems(self.fields)
-        # Try to select a different field by default if possible (e.g. if 'Image' exists)
-        image_idx = -1
-        for i, f in enumerate(self.fields):
-            if "image" in f.lower():
-                image_idx = i
-                break
         
-        if image_idx != -1:
-            self.target_combo.setCurrentIndex(image_idx)
-        elif len(self.fields) > 1:
-            self.target_combo.setCurrentIndex(1)
-        elif self.fields:
-            self.target_combo.setCurrentIndex(0)
+        # Initial value or heuristic
+        target_val = self.initial_config.get("target_field")
+        if target_val and target_val in self.fields:
+            self.target_combo.setCurrentText(target_val)
+        else:
+            # Try to select a different field by default if possible (e.g. if 'Image' exists)
+            image_idx = -1
+            for i, f in enumerate(self.fields):
+                if "image" in f.lower():
+                    image_idx = i
+                    break
+            
+            if image_idx != -1:
+                self.target_combo.setCurrentIndex(image_idx)
+            elif len(self.fields) > 1:
+                self.target_combo.setCurrentIndex(1)
+            elif self.fields:
+                self.target_combo.setCurrentIndex(0)
             
         target_layout.addWidget(self.target_combo)
         layout.addLayout(target_layout)
 
-        # Image Width
-        width_layout = QHBoxLayout()
-        width_layout.addWidget(QLabel("Max Image Width (px):"))
+        # Image Dimensions
+        dims_layout = QHBoxLayout()
+        dims_layout.addWidget(QLabel("Max Width:"))
         self.width_spin = QSpinBox()
         self.width_spin.setRange(50, 2000)
-        self.width_spin.setValue(320)
-        width_layout.addWidget(self.width_spin)
-        layout.addLayout(width_layout)
+        self.width_spin.setValue(self.initial_config.get("image_width", 320))
+        dims_layout.addWidget(self.width_spin)
+        
+        dims_layout.addWidget(QLabel("Max Height:"))
+        self.height_spin = QSpinBox()
+        self.height_spin.setRange(50, 2000)
+        self.height_spin.setValue(self.initial_config.get("max_height", 320))
+        dims_layout.addWidget(self.height_spin)
+        layout.addLayout(dims_layout)
 
         # Mode
         layout.addWidget(QLabel("Update Mode:"))
@@ -64,7 +91,13 @@ class ConfigDialog(QDialog):
         self.append_radio = QRadioButton("Append")
         self.skip_radio = QRadioButton("Skip if not empty")
         
-        self.replace_radio.setChecked(True)
+        mode_val = self.initial_config.get("mode", "replace")
+        if mode_val == "append":
+            self.append_radio.setChecked(True)
+        elif mode_val == "skip":
+            self.skip_radio.setChecked(True)
+        else:
+            self.replace_radio.setChecked(True)
         
         self.mode_button_group.addButton(self.replace_radio, 0)
         self.mode_button_group.addButton(self.append_radio, 1)
@@ -101,7 +134,9 @@ class ConfigDialog(QDialog):
         return {
             "source_field": self.source_combo.currentText(),
             "target_field": self.target_combo.currentText(),
+            "search_suffix": self.suffix_edit.text(),
             "image_width": self.width_spin.value(),
+            "max_height": self.height_spin.value(),
             "mode": mode_map.get(checked_id, "replace")
         }
 
