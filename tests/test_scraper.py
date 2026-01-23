@@ -62,7 +62,26 @@ def test_fetch_image_urls_returns_list_of_urls(mock_get):
 def test_fetch_image_urls_handles_error(mock_get):
     mock_response = MagicMock()
     mock_response.status_code = 404
+    mock_response.text = "Not Found"
     mock_get.return_value = mock_response
-
+    
+    # We expect an empty list if there's an error status code or exception
     urls = fetch_image_urls("test query")
     assert urls == []
+
+def test_fetch_image_urls_empty_query():
+    assert fetch_image_urls("") == []
+    assert fetch_image_urls("   ") == []
+    assert fetch_image_urls(None) == []
+
+@patch('requests.get')
+def test_fetch_image_urls_custom_limit(mock_get):
+    mock_html = '<html><body><img src="https://example.com/1.jpg"><img src="https://example.com/2.jpg"></body></html>'
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.text = mock_html
+    mock_get.return_value = mock_response
+    
+    urls = fetch_image_urls("test", limit=1)
+    assert len(urls) == 1
+    assert urls[0] == "https://example.com/1.jpg"

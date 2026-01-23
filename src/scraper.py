@@ -2,7 +2,20 @@ import requests
 import re
 from bs4 import BeautifulSoup
 
-def fetch_image_urls(query):
+def fetch_image_urls(query, limit=8):
+    """
+    Fetches image URLs from Google Images based on a search query.
+
+    Args:
+        query (str): The search term to find images for.
+        limit (int): The maximum number of URLs to return. Defaults to 8.
+
+    Returns:
+        list: A list of image URLs (strings).
+    """
+    if not query or not query.strip():
+        return []
+
     url = f"https://www.google.com/search?q={query}&tbm=isch"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -10,8 +23,7 @@ def fetch_image_urls(query):
     
     try:
         response = requests.get(url, headers=headers)
-        if response.status_code != 200:
-            return []
+        response.raise_for_status()
             
         soup = BeautifulSoup(response.text, 'html.parser')
         
@@ -43,12 +55,13 @@ def fetch_image_urls(query):
         
         for pattern in patterns:
             found_urls = re.findall(pattern, response.text)
-            for url in found_urls:
-                if url not in urls:
-                    urls.append(url)
+            for found_url in found_urls:
+                if found_url not in urls:
+                    urls.append(found_url)
                 if len(urls) >= 30:
                     break
                     
-        return urls[:8]
-    except Exception:
+        return urls[:limit]
+    except requests.RequestException as e:
+        print(f"Error fetching images for '{query}': {e}")
         return []
