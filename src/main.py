@@ -34,15 +34,22 @@ def on_quick_image_picker(browser):
     config_manager.save_note_type_config(model_name, config)
     
     source_field = config["source_field"]
+    context_fields = config.get("context_fields", [])
     
     # 5. Prepare note data for Picker
     notes_data = []
     for nid in selected_notes:
         term = get_field_content(nid, source_field)
         if term:
+            context_data = {}
+            for field in context_fields:
+                content = get_field_content(nid, field)
+                context_data[field] = content
+
             notes_data.append({
                 "id": nid,
                 "term": term,
+                "context_data": context_data,
                 "config": config  # Pass config so picker knows where to save
             })
             
