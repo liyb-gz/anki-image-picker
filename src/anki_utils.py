@@ -113,3 +113,18 @@ def save_image_to_note(note_id, image_data, field_name, mode, search_term):
     # 5. Flush changes
     note.flush()
     return True
+
+def restore_field_content(note_id, field_name, content):
+    """
+    Restores the original content of a field and flushes the note.
+    """
+    from aqt import mw
+    try:
+        note = mw.col.get_note(note_id)
+        if field_name in note:
+            note[field_name] = content
+            note.flush()
+            return True
+    except Exception as e:
+        print(f"Error restoring note {note_id}: {e}")
+    return False
