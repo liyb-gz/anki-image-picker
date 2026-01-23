@@ -85,8 +85,8 @@ def test_save_image_to_note():
     note.__setitem__ = MagicMock()
     mock_mw.col.get_note.return_value = note
     
-    # Mock media.add_file
-    mock_mw.col.media.add_file.return_value = "saved_filename.jpg"
+    # Mock media.write_data
+    mock_mw.col.media.write_data.return_value = "saved_filename.jpg"
     
     from src.anki_utils import save_image_to_note
     
@@ -130,9 +130,39 @@ def test_filename_sanitization():
     # Complex term
     save_image_to_note(1, b"data", "Field", "replace", "Golden Retriever (Dog) & Cat!")
     
-    # Check what was passed to add_file
-    args, kwargs = mock_mw.col.media.add_file.call_args
+    # Check what was passed to write_data
+    args, kwargs = mock_mw.col.media.write_data.call_args
     filename = args[0]
     assert "Golden Retriever _Dog_ _ Cat_" in filename
     assert filename.endswith(".jpg")
     assert " " in filename # Current regex allows spaces
+
+def test_extension_detection():
+    from src.anki_utils import save_image_to_note
+    mock_mw = MagicMock()
+    import aqt
+    aqt.mw = mock_mw
+    
+    note = MagicMock()
+    note.__contains__.return_value = True
+    mock_mw.col.get_note.return_value = note
+    
+    # PNG
+    save_image_to_note(1, b"\x89PNG\r\n\x1a\nfake_png", "Field", "replace", "term")
+    args, _ = mock_mw.col.media.write_data.call_args
+    assert args[0].endswith(".png")
+    
+    # GIF
+    save_image_to_note(1, b"GIF89afake_gif", "Field", "replace", "term")
+    args, _ = mock_mw.col.media.write_data.call_args
+    assert args[0].endswith(".gif")
+    
+    # WEBP
+    save_image_to_note(1, b"RIFF\x00\x00\x00\x00WEBPfake_webp", "Field", "replace", "term")
+    args, _ = mock_mw.col.media.write_data.call_args
+    assert args[0].endswith(".webp")
+    
+    # Default (JPG)
+    save_image_to_note(1, b"random_data", "Field", "replace", "term")
+    args, _ = mock_mw.col.media.write_data.call_args
+    assert args[0].endswith(".jpg")
