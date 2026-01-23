@@ -142,7 +142,23 @@ class PickerDialog(QDialog):
         self.grid_layout = QGridLayout(self.grid_widget)
         self.grid_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.scroll_area.setWidget(self.grid_widget)
-        layout.addWidget(self.scroll_area)
+
+        # Content area with Sidebar
+        content_widget = QWidget()
+        content_layout = QHBoxLayout(content_widget)
+        
+        # Sidebar for context data
+        self.sidebar_scroll = QScrollArea()
+        self.sidebar_scroll.setFixedWidth(200)
+        self.sidebar_scroll.setWidgetResizable(True)
+        self.sidebar_widget = QWidget()
+        self.sidebar_layout = QVBoxLayout(self.sidebar_widget)
+        self.sidebar_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.sidebar_scroll.setWidget(self.sidebar_widget)
+        
+        content_layout.addWidget(self.sidebar_scroll)
+        content_layout.addWidget(self.scroll_area)
+        layout.addWidget(content_widget)
 
         # Footer Buttons
         footer_layout = QHBoxLayout()
@@ -216,8 +232,31 @@ class PickerDialog(QDialog):
             except Exception as e:
                 print(f"Error fetching note: {e}")
 
+        # Update Sidebar
+        self.clear_sidebar()
+        context_data = note_data.get("context_data", {})
+        if not context_data:
+            self.sidebar_scroll.hide()
+        else:
+            self.sidebar_scroll.show()
+            for field, content in context_data.items():
+                label = QLabel(f"<b>{field}</b>")
+                content_label = QLabel(content)
+                content_label.setWordWrap(True)
+                self.sidebar_layout.addWidget(label)
+                self.sidebar_layout.addWidget(content_label)
+                self.sidebar_layout.addSpacing(10)
+
         self.update_field_buttons()
         self.start_fetching()
+
+    def clear_sidebar(self):
+        while self.sidebar_layout.count():
+            item = self.sidebar_layout.takeAt(0)
+            if item:
+                widget = item.widget()
+                if widget:
+                    widget.deleteLater()
 
     def update_field_buttons(self):
         while self.field_buttons_layout.count():

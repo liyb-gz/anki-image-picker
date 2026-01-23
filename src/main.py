@@ -39,13 +39,10 @@ def on_quick_image_picker(browser):
     # 5. Prepare note data for Picker
     notes_data = []
     for nid in selected_notes:
-        term = get_field_content(nid, source_field)
+        note = mw.col.get_note(nid)
+        term = get_field_content(note, source_field)
         if term:
-            context_data = {}
-            for field in context_fields:
-                content = get_field_content(nid, field)
-                context_data[field] = content
-
+            context_data = {f: get_field_content(note, f) for f in context_fields}
             notes_data.append({
                 "id": nid,
                 "term": term,
