@@ -10,9 +10,9 @@ try:
     from aqt import mw
 except ImportError:
     mw = None
-from src.scraper import fetch_image_urls
-from src.gui.widgets import ClickableImageLabel
-from src.anki_utils import save_image_to_note, get_field_content, restore_field_content
+from ..scraper import fetch_image_urls
+from .widgets import ClickableImageLabel
+from ..anki_utils import save_image_to_note, get_field_content, restore_field_content
 
 class ImageFetcher(QThread):
     finished = pyqtSignal(list)
