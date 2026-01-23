@@ -1,7 +1,9 @@
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
     QComboBox, QRadioButton, QButtonGroup, 
-    QPushButton, QDialogButtonBox, QSpinBox, QLineEdit
+    QPushButton, QDialogButtonBox, QSpinBox, QLineEdit,
+    QListWidget, QListWidgetItem, QGroupBox
 )
 
 class ConfigDialog(QDialog):
@@ -68,6 +70,24 @@ class ConfigDialog(QDialog):
         target_layout.addWidget(self.target_combo)
         layout.addLayout(target_layout)
 
+        # Context Fields
+        context_group = QGroupBox("Context Fields (Show in Picker)")
+        context_layout = QVBoxLayout(context_group)
+        self.context_list = QListWidget()
+        
+        initial_context = self.initial_config.get("context_fields", [])
+        for field in self.fields:
+            item = QListWidgetItem(field)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            if field in initial_context:
+                item.setCheckState(Qt.CheckState.Checked)
+            else:
+                item.setCheckState(Qt.CheckState.Unchecked)
+            self.context_list.addItem(item)
+            
+        context_layout.addWidget(self.context_list)
+        layout.addWidget(context_group)
+
         # Image Dimensions
         dims_layout = QHBoxLayout()
         dims_layout.addWidget(QLabel("Max Width:"))
@@ -131,9 +151,17 @@ class ConfigDialog(QDialog):
         """
         mode_map = {0: "replace", 1: "append", 2: "skip"}
         checked_id = self.mode_button_group.checkedId()
+        
+        context_fields = []
+        for i in range(self.context_list.count()):
+            item = self.context_list.item(i)
+            if item and item.checkState() == Qt.CheckState.Checked:
+                context_fields.append(item.text())
+
         return {
             "source_field": self.source_combo.currentText(),
             "target_field": self.target_combo.currentText(),
+            "context_fields": context_fields,
             "search_suffix": self.suffix_edit.text(),
             "max_width": self.width_spin.value(),
             "max_height": self.height_spin.value(),

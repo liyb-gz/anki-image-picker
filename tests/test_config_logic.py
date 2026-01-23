@@ -57,3 +57,43 @@ def test_config_dialog_initial_config(qapp):
     assert config["max_width"] == 400
     assert config["max_height"] == 500
     assert config["mode"] == "skip"
+
+def test_config_dialog_context_fields(qapp):
+    from PyQt6.QtCore import Qt
+    fields = ["Front", "Back", "Meaning", "Notes"]
+    dialog = ConfigDialog(fields)
+    
+    # Simulate selecting "Meaning" and "Notes"
+    items = dialog.context_list.findItems("Meaning", Qt.MatchFlag.MatchExactly)
+    if items: items[0].setCheckState(Qt.CheckState.Checked)
+    
+    items = dialog.context_list.findItems("Notes", Qt.MatchFlag.MatchExactly)
+    if items: items[0].setCheckState(Qt.CheckState.Checked)
+    
+    config = dialog.get_config()
+    assert "Meaning" in config["context_fields"]
+    assert "Notes" in config["context_fields"]
+    assert "Front" not in config["context_fields"]
+
+def test_config_dialog_initial_context_fields(qapp):
+    from PyQt6.QtCore import Qt
+    fields = ["Front", "Back", "Meaning", "Notes"]
+    initial_config = {
+        "context_fields": ["Back", "Meaning"]
+    }
+    dialog = ConfigDialog(fields, initial_config=initial_config)
+    
+    config = dialog.get_config()
+    assert "Back" in config["context_fields"]
+    assert "Meaning" in config["context_fields"]
+    assert "Front" not in config["context_fields"]
+    assert "Notes" not in config["context_fields"]
+    
+    # Verify check states directly
+    for i in range(dialog.context_list.count()):
+        item = dialog.context_list.item(i)
+        if item:
+            if item.text() in ["Back", "Meaning"]:
+                assert item.checkState() == Qt.CheckState.Checked
+            else:
+                assert item.checkState() == Qt.CheckState.Unchecked
