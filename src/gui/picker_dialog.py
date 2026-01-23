@@ -4,7 +4,13 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QThread, QThreadPool, QRunnable, pyqtSlot, QObject
 from PyQt6.QtGui import QPixmap, QShortcut, QKeySequence
-from PyQt6 import sip
+try:
+    from aqt.qt import sip
+except ImportError:
+    try:
+        from PyQt6 import sip
+    except ImportError:
+        import sip
 import requests
 try:
     from aqt import mw
@@ -86,6 +92,7 @@ class PickerDialog(QDialog):
         self.threadpool = QThreadPool()
         self.current_note = None
         self.history = []
+        self._running_threads = []
         self.setWindowTitle("Anki Image Picker")
         self.resize(800, 600)
         self.init_ui()
@@ -232,24 +239,52 @@ class PickerDialog(QDialog):
 
     def start_fetching(self):
         query = self.search_input.text()
+        if not query.strip():
+            return
+
         self.search_input.setStyleSheet("")  # Reset feedback
-        
-        if self.fetcher and self.fetcher.isRunning():
-            self.fetcher.finished.disconnect()
-            self.fetcher.quit()
-            # We don't wait() here to avoid freezing the UI; 
-            # the old thread will finish in background.
-        
-        self.fetcher = ImageFetcher(query)
-        self.fetcher.finished.connect(self.on_images_fetched)
-        self.fetcher.error.connect(lambda e: print(f"Fetch error: {e}"))
-        self.fetcher.start()
+        self.progress_label.setText("Searching...")
+        self.clear_grid()
+
+        if mw:
+            # Use Anki's taskman for safe background processing
+            mw.taskman.run_in_background(
+                lambda: fetch_image_urls(query),
+                self.on_images_fetched
+            )
+        else:
+            # Fallback for non-Anki environment
+            fetcher = ImageFetcher(query)
+            self._running_threads.append(fetcher)
+            fetcher.finished.connect(lambda urls: self.on_images_fetched(urls))
+            fetcher.error.connect(self.on_fetch_error)
+            fetcher.finished.connect(lambda: self._cleanup_thread(fetcher))
+            fetcher.start()
 
     def on_images_fetched(self, urls):
         self.clear_grid()
+        self.progress_label.setText("")
+        
         if not urls:
             self.search_input.setStyleSheet("border: 2px solid red;")
+            self.progress_label.setText("No results")
             return
+            
+        for i, url in enumerate(urls):
+            label = ClickableImageLabel(url)
+            # Shortcut visual aid
+            if i < 8:
+                container = QVBoxLayout()
+                container.addWidget(label)
+                shortcut_label = QLabel(f"[{i+1}]")
+                shortcut_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                container.addWidget(shortcut_label)
+                self.grid_layout.addLayout(container, i // 4, i % 4)
+            else:
+                self.grid_layout.addWidget(label, i // 4, i % 4)
+            
+            label.clicked.connect(self.on_image_selected)
+            self.queue_thumbnail_load(label, url)
             
         for i, url in enumerate(urls):
             label = ClickableImageLabel(url)
@@ -379,17 +414,45 @@ class PickerDialog(QDialog):
         """
         When an image is selected, download it in a background thread.
         """
-        if self.downloader and self.downloader.isRunning():
-            return
-            
-        self.downloader = ImageDownloader(url)
-        self.downloader.finished.connect(self.on_image_downloaded)
-        self.downloader.error.connect(self.on_download_error)
-        self.downloader.start()
-        # Visual feedback
         self.progress_label.setText("Saving...")
+        
+        if mw:
+            mw.taskman.run_in_background(
+                lambda: self._download_image(url),
+                self.on_image_downloaded
+            )
+        else:
+            downloader = ImageDownloader(url)
+            self._running_threads.append(downloader)
+            downloader.finished.connect(self.on_image_downloaded)
+            downloader.error.connect(self.on_download_error)
+            downloader.finished.connect(lambda: self._cleanup_thread(downloader))
+            downloader.start()
+
+    def _download_image(self, url):
+        if url.startswith("data:image"):
+            import base64
+            header, data = url.split(",", 1)
+            return base64.b64decode(data)
+        else:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            return response.content
+
+    def on_fetch_error(self, error_msg):
+        print(f"Fetch error: {error_msg}")
+        self.progress_label.setText(f"Search failed")
+        self.search_input.setStyleSheet("border: 2px solid red;")
+
+    def _cleanup_thread(self, thread):
+        if thread in self._running_threads:
+            self._running_threads.remove(thread)
 
     def on_image_downloaded(self, image_data):
+        if not image_data or not isinstance(image_data, bytes):
+            self.on_download_error("Invalid image data received")
+            return
+
         note_data = self.notes[self.current_index]
         config = note_data.get("config", {})
         field_name = config.get("target_field")
