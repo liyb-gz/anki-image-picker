@@ -1,4 +1,5 @@
 import requests
+import re
 from bs4 import BeautifulSoup
 
 def fetch_image_urls(query):
@@ -13,18 +14,41 @@ def fetch_image_urls(query):
             return []
             
         soup = BeautifulSoup(response.text, 'html.parser')
-        # Google Images HTML structure for thumbnails
-        # In the simple version, it's often <img> tags with a specific class or within <td>
-        # For our mock, we used class "t-image"
-        images = soup.find_all("img")
         
         urls = []
-        for img in images:
+        
+        # 1. Try to find images in the standard HTML structure
+        for img in soup.find_all("img"):
             src = img.get("src")
-            if src and (src.startswith("http") or src.startswith("data:image")):
-                urls.append(src)
-            if len(urls) >= 8:
+            if not src:
+                continue
+            
+            # Skip obvious UI elements
+            if any(x in src for x in ["googlelogo", "cleardot", "nav_logo"]):
+                continue
+                
+            if src.startswith("http") or src.startswith("data:image"):
+                if src not in urls:
+                    urls.append(src)
+            
+            if len(urls) >= 20:
                 break
-        return urls
+                
+        # 2. Use regex to find additional URLs (especially high-res or those in scripts)
+        # Matches common image extensions and Google's thumbnail pattern
+        patterns = [
+            r'["\'](https?://[^"\'\s]+\.(?:jpg|jpeg|png|gif|bmp))["\']',
+            r'["\'](https?://encrypted-tbn[0-9]\.gstatic\.com/images\?q=tbn:[^"\'\s]+)["\']'
+        ]
+        
+        for pattern in patterns:
+            found_urls = re.findall(pattern, response.text)
+            for url in found_urls:
+                if url not in urls:
+                    urls.append(url)
+                if len(urls) >= 30:
+                    break
+                    
+        return urls[:8]
     except Exception:
         return []

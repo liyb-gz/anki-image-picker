@@ -56,7 +56,7 @@ def test_fetch_image_urls_returns_list_of_urls(mock_get):
     assert isinstance(urls, list)
     assert len(urls) == 8
     assert all(isinstance(url, str) for url in urls)
-    assert urls[0].startswith("data:image/jpeg;base64") or urls[0] == "https://encrypted-tbn0.gstatic.com/images?q=tbn:1"
+    assert urls[0].startswith("data:image/jpeg;base64") or urls[0] == "https://encrypted-tbn0.gstatic.com/images?q=tbn:2"
 
 @patch('requests.get')
 def test_fetch_image_urls_handles_error(mock_get):
