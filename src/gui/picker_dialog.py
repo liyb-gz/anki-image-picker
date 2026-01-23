@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QThread, QThreadPool, QRunnable, pyqtSlot, QObject
 from PyQt6.QtGui import QPixmap, QShortcut, QKeySequence
+from PyQt6 import sip
 import requests
 from src.scraper import fetch_image_urls
 from src.gui.widgets import ClickableImageLabel
@@ -177,6 +178,9 @@ class PickerDialog(QDialog):
         self.threadpool.start(worker)
 
     def on_thumbnail_loaded(self, label, image_data):
+        if sip.isdeleted(label):
+            return
+
         if not image_data:
             label.setText("Error")
             return
