@@ -84,6 +84,7 @@ class PickerDialog(QDialog):
         self.fetcher = None
         self.downloader = None
         self.threadpool = QThreadPool()
+        self.current_note = None
         self.setWindowTitle("Anki Image Picker")
         self.resize(800, 600)
         self.init_ui()
@@ -184,12 +185,19 @@ class PickerDialog(QDialog):
         self.progress_label.setText(f"Card {self.current_index + 1} of {len(self.notes)}")
         self.back_button.setEnabled(self.current_index > 0)
         
-        self.update_field_buttons(note_data)
+        self.current_note = None
+        if mw:
+            try:
+                self.current_note = mw.col.get_note(note_data["id"])
+            except Exception as e:
+                print(f"Error fetching note: {e}")
+
+        self.update_field_buttons()
         
         self.clear_grid()
         self.start_fetching()
 
-    def update_field_buttons(self, note_data):
+    def update_field_buttons(self):
         # Clear existing buttons
         while self.field_buttons_layout.count():
             item = self.field_buttons_layout.takeAt(0)
@@ -198,12 +206,11 @@ class PickerDialog(QDialog):
                 if widget:
                     widget.deleteLater()
         
-        if not mw:
+        if not self.current_note:
             return
 
         try:
-            note = mw.col.get_note(note_data["id"])
-            fields = note.keys()
+            fields = self.current_note.keys()
             for field in fields:
                 btn = QPushButton(field)
                 btn.clicked.connect(lambda checked, f=field: self.on_field_clicked(f))
@@ -212,8 +219,9 @@ class PickerDialog(QDialog):
             print(f"Error getting fields: {e}")
 
     def on_field_clicked(self, field_name):
-        note_data = self.notes[self.current_index]
-        text = get_field_content(note_data["id"], field_name)
+        if not self.current_note:
+            return
+        text = get_field_content(self.current_note, field_name)
         if text:
             self.search_input.setText(text)
             self.start_fetching()

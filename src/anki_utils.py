@@ -26,20 +26,23 @@ def get_field_names(note_ids):
             
     return sorted(list(field_names))
 
-def get_field_content(note_id, field_name):
+def get_field_content(note_or_id, field_name):
     """
-    Returns the cleaned text content of a field from a note ID.
+    Returns the cleaned text content of a field from a note ID or Note object.
     Cleans HTML tags and Cloze markers.
     """
     from aqt import mw
-    try:
-        note = mw.col.get_note(note_id)
-    except Exception:
-        return ""
+    if isinstance(note_or_id, (int, str)):
+        try:
+            note = mw.col.get_note(note_or_id)
+        except Exception:
+            return ""
+    else:
+        note = note_or_id
         
     try:
         content = note[field_name]
-    except KeyError:
+    except (KeyError, TypeError):
         return ""
 
     # Clean HTML
