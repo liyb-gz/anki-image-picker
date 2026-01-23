@@ -41,6 +41,8 @@ class ConfigDialog(QDialog):
             self.target_combo.setCurrentIndex(image_idx)
         elif len(self.fields) > 1:
             self.target_combo.setCurrentIndex(1)
+        elif self.fields:
+            self.target_combo.setCurrentIndex(0)
             
         target_layout.addWidget(self.target_combo)
         layout.addLayout(target_layout)
@@ -71,6 +73,10 @@ class ConfigDialog(QDialog):
         )
         self.start_button = QPushButton("Start")
         self.start_button.setDefault(True)
+        if not self.fields:
+            self.start_button.setEnabled(False)
+            layout.addWidget(QLabel("<font color='red'>No fields found in the selected note type.</font>"))
+
         self.button_box.addButton(self.start_button, QDialogButtonBox.ButtonRole.AcceptRole)
         
         self.button_box.accepted.connect(self.accept)
@@ -82,10 +88,11 @@ class ConfigDialog(QDialog):
         Returns the user's choices as a dictionary.
         """
         mode_map = {0: "replace", 1: "append", 2: "skip"}
+        checked_id = self.mode_button_group.checkedId()
         return {
             "source_field": self.source_combo.currentText(),
             "target_field": self.target_combo.currentText(),
-            "mode": mode_map[self.mode_button_group.checkedId()]
+            "mode": mode_map.get(checked_id, "replace")
         }
 
 if __name__ == "__main__":
