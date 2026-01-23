@@ -380,7 +380,7 @@ class PickerDialog(QDialog):
             field_name=field_name,
             mode=config.get("mode"),
             search_term=self.search_input.text(),
-            image_width=config.get("image_width"),
+            max_width=config.get("max_width"),
             max_height=config.get("max_height")
         )
         

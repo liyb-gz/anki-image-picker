@@ -180,7 +180,7 @@ def test_save_image_with_dimensions():
     mock_mw.col.media.write_data.return_value = "saved_filename.jpg"
     
     # Width and Height
-    save_image_to_note(1, b"data", "Field", "replace", "term", image_width=400, max_height=500)
+    save_image_to_note(1, b"data", "Field", "replace", "term", max_width=400, max_height=500)
     note.__setitem__.assert_called()
     call_args = note.__setitem__.call_args[0]
     img_tag = call_args[1]
@@ -188,7 +188,7 @@ def test_save_image_with_dimensions():
     
     # Only Width
     note.__setitem__.reset_mock()
-    save_image_to_note(1, b"data", "Field", "replace", "term", image_width=400)
+    save_image_to_note(1, b"data", "Field", "replace", "term", max_width=400)
     img_tag = note.__setitem__.call_args[0][1]
     assert 'style="max-width: 400px;"' in img_tag
     

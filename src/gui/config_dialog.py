@@ -73,7 +73,7 @@ class ConfigDialog(QDialog):
         dims_layout.addWidget(QLabel("Max Width:"))
         self.width_spin = QSpinBox()
         self.width_spin.setRange(50, 2000)
-        self.width_spin.setValue(self.initial_config.get("image_width", 320))
+        self.width_spin.setValue(self.initial_config.get("max_width", 320))
         dims_layout.addWidget(self.width_spin)
         
         dims_layout.addWidget(QLabel("Max Height:"))
@@ -135,7 +135,7 @@ class ConfigDialog(QDialog):
             "source_field": self.source_combo.currentText(),
             "target_field": self.target_combo.currentText(),
             "search_suffix": self.suffix_edit.text(),
-            "image_width": self.width_spin.value(),
+            "max_width": self.width_spin.value(),
             "max_height": self.height_spin.value(),
             "mode": mode_map.get(checked_id, "replace")
         }

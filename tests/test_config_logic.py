@@ -19,7 +19,7 @@ def test_config_dialog_data(qapp):
     config = dialog.get_config()
     assert config["source_field"] == "Front"
     assert config["target_field"] == "Image"
-    assert config["image_width"] == 320
+    assert config["max_width"] == 320
     assert config["max_height"] == 320
     assert config["search_suffix"] == ""
     assert config["mode"] == "replace"
@@ -33,7 +33,7 @@ def test_config_dialog_data(qapp):
     
     config = dialog.get_config()
     assert config["source_field"] == "Back"
-    assert config["image_width"] == 500
+    assert config["max_width"] == 500
     assert config["max_height"] == 600
     assert config["search_suffix"] == " anatomical"
     assert config["mode"] == "append"
@@ -44,7 +44,7 @@ def test_config_dialog_initial_config(qapp):
         "source_field": "Back",
         "target_field": "Front",
         "search_suffix": " test",
-        "image_width": 400,
+        "max_width": 400,
         "max_height": 500,
         "mode": "skip"
     }
@@ -54,6 +54,6 @@ def test_config_dialog_initial_config(qapp):
     assert config["source_field"] == "Back"
     assert config["target_field"] == "Front"
     assert config["search_suffix"] == " test"
-    assert config["image_width"] == 400
+    assert config["max_width"] == 400
     assert config["max_height"] == 500
     assert config["mode"] == "skip"
