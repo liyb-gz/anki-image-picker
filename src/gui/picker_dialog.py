@@ -6,8 +6,13 @@ from PyQt6.QtCore import Qt, pyqtSignal, QThread, QThreadPool, QRunnable, pyqtSl
 from PyQt6.QtGui import QPixmap, QShortcut, QKeySequence
 from PyQt6 import sip
 import requests
+try:
+    from aqt import mw
+except ImportError:
+    mw = None
 from src.scraper import fetch_image_urls
 from src.gui.widgets import ClickableImageLabel
+from src.anki_utils import save_image_to_note
 
 class ImageFetcher(QThread):
     finished = pyqtSignal(list)
@@ -21,6 +26,28 @@ class ImageFetcher(QThread):
         try:
             urls = fetch_image_urls(self.query)
             self.finished.emit(urls)
+        except Exception as e:
+            self.error.emit(str(e))
+
+class ImageDownloader(QThread):
+    finished = pyqtSignal(bytes)
+    error = pyqtSignal(str)
+
+    def __init__(self, url):
+        super().__init__()
+        self.url = url
+
+    def run(self):
+        try:
+            if self.url.startswith("data:image"):
+                import base64
+                header, data = self.url.split(",", 1)
+                image_data = base64.b64decode(data)
+            else:
+                response = requests.get(self.url, timeout=10)
+                response.raise_for_status()
+                image_data = response.content
+            self.finished.emit(image_data)
         except Exception as e:
             self.error.emit(str(e))
 
@@ -55,6 +82,7 @@ class PickerDialog(QDialog):
         self.notes = notes
         self.current_index = 0
         self.fetcher = None
+        self.downloader = None
         self.threadpool = QThreadPool()
         self.setWindowTitle("Anki Image Picker")
         self.resize(800, 600)
@@ -235,10 +263,51 @@ class PickerDialog(QDialog):
         else:
             self.accept()
 
+    def accept(self):
+        if mw:
+            mw.reset()
+        super().accept()
+
+    def reject(self):
+        if mw:
+            mw.reset()
+        super().reject()
+
     def on_image_selected(self, url):
-        print(f"Selected: {url}")
-        # Logic to save and go to next will be in next task
-        self.on_skip()
+        """
+        When an image is selected, download it in a background thread.
+        """
+        if self.downloader and self.downloader.isRunning():
+            return
+            
+        self.downloader = ImageDownloader(url)
+        self.downloader.finished.connect(self.on_image_downloaded)
+        self.downloader.error.connect(self.on_download_error)
+        self.downloader.start()
+        # Visual feedback
+        self.progress_label.setText("Saving...")
+
+    def on_image_downloaded(self, image_data):
+        note_data = self.notes[self.current_index]
+        config = note_data.get("config", {})
+        
+        success = save_image_to_note(
+            note_id=note_data["id"],
+            image_data=image_data,
+            field_name=config.get("target_field"),
+            mode=config.get("mode"),
+            search_term=note_data["term"]
+        )
+        
+        if success:
+            self.on_skip()
+        else:
+            self.on_download_error("Failed to save to Anki")
+
+    def on_download_error(self, error_msg):
+        print(f"Download/Save error: {error_msg}")
+        self.progress_label.setText("Error saving image")
+        self.update_current_note()
 
 if __name__ == "__main__":
     import sys

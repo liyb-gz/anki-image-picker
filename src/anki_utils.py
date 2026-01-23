@@ -1,5 +1,7 @@
 import re
+import os
 from bs4 import BeautifulSoup
+
 def get_field_names(note_ids):
     """
     Returns a list of unique field names for the given note IDs.
@@ -50,3 +52,61 @@ def get_field_content(note_id, field_name):
     text = text.replace("{{", "").replace("}}", "")
     
     return text.strip()
+
+def save_image_to_note(note_id, image_data, field_name, mode, search_term):
+    """
+    Saves image data to Anki's media collection and updates the specified note field.
+    """
+    from aqt import mw
+    
+    # 1. Detect extension from magic bytes
+    ext = ".jpg" # Default
+    if image_data.startswith(b"\x89PNG\r\n\x1a\n"):
+        ext = ".png"
+    elif image_data.startswith(b"GIF87a") or image_data.startswith(b"GIF89a"):
+        ext = ".gif"
+    elif image_data.startswith(b"RIFF") and image_data[8:12] == b"WEBP":
+        ext = ".webp"
+    
+    # 2. Generate a sanitized filename
+    clean_term = re.sub(r'[^\w\-_\. ]', '_', search_term).strip()
+    if not clean_term:
+        clean_term = "image"
+    
+    clean_term = clean_term[:50]
+    suggested_filename = f"image_picker_{clean_term}{ext}"
+    
+    # 3. Save to media collection using write_data for raw bytes
+    filename = mw.col.media.write_data(suggested_filename, image_data)
+    
+    # 4. Construct HTML tag
+    img_tag = f'<img src="{filename}">'
+    
+    # 4. Update the note
+    try:
+        note = mw.col.get_note(note_id)
+    except Exception:
+        return False
+        
+    if field_name not in note:
+        return False
+        
+    current_content = note[field_name].strip()
+    
+    if mode == "replace":
+        note[field_name] = img_tag
+    elif mode == "append":
+        if current_content:
+            note[field_name] = current_content + "<br>" + img_tag
+        else:
+            note[field_name] = img_tag
+    elif mode == "skip":
+        if not current_content:
+            note[field_name] = img_tag
+        else:
+            # Field not empty, skip updating
+            return True
+    
+    # 5. Flush changes
+    note.flush()
+    return True

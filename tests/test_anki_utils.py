@@ -72,3 +72,67 @@ def test_get_field_content_with_hint():
     content = get_field_content(1, "Front")
     
     assert content == "actual"
+
+def test_save_image_to_note():
+    # Setup mocks
+    mock_mw = MagicMock()
+    import aqt
+    aqt.mw = mock_mw
+    
+    note = MagicMock()
+    note.__getitem__.side_effect = lambda key: "old content"
+    note.__contains__.side_effect = lambda key: True
+    note.__setitem__ = MagicMock()
+    mock_mw.col.get_note.return_value = note
+    
+    # Mock media.add_file
+    mock_mw.col.media.add_file.return_value = "saved_filename.jpg"
+    
+    from src.anki_utils import save_image_to_note
+    
+    # Test Replace
+    success = save_image_to_note(1, b"fake_data", "Field", "replace", "term")
+    assert success is True
+    note.__setitem__.assert_called_with("Field", '<img src="saved_filename.jpg">')
+    
+    # Test Append
+    note.__setitem__.reset_mock()
+    success = save_image_to_note(1, b"fake_data", "Field", "append", "term")
+    assert success is True
+    note.__setitem__.assert_called_with("Field", 'old content<br><img src="saved_filename.jpg">')
+    
+    # Test Skip (not empty)
+    note.__setitem__.reset_mock()
+    success = save_image_to_note(1, b"fake_data", "Field", "skip", "term")
+    assert success is True
+    note.__setitem__.assert_not_called()
+    
+    # Test Skip (empty)
+    note.__getitem__.side_effect = lambda key: ""
+    note.__setitem__.reset_mock()
+    success = save_image_to_note(1, b"fake_data", "Field", "skip", "term")
+    assert success is True
+    note.__setitem__.assert_called_with("Field", '<img src="saved_filename.jpg">')
+    
+    # Verify flush
+    assert note.flush.called
+
+def test_filename_sanitization():
+    from src.anki_utils import save_image_to_note
+    mock_mw = MagicMock()
+    import aqt
+    aqt.mw = mock_mw
+    
+    note = MagicMock()
+    note.__contains__.return_value = True
+    mock_mw.col.get_note.return_value = note
+    
+    # Complex term
+    save_image_to_note(1, b"data", "Field", "replace", "Golden Retriever (Dog) & Cat!")
+    
+    # Check what was passed to add_file
+    args, kwargs = mock_mw.col.media.add_file.call_args
+    filename = args[0]
+    assert "Golden Retriever _Dog_ _ Cat_" in filename
+    assert filename.endswith(".jpg")
+    assert " " in filename # Current regex allows spaces
