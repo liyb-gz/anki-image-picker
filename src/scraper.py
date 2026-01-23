@@ -37,7 +37,7 @@ def fetch_image_urls(query, limit=8, start=0):
                 if int(height) >= 300 and int(width) >= 300:
                     if img_url not in high_res_urls:
                         high_res_urls.append(img_url)
-                if len(high_res_urls) >= 20:
+                if len(high_res_urls) >= 100:
                     break
 
         # 2. Secondary Strategy: Extract direct image links from other patterns
@@ -52,7 +52,7 @@ def fetch_image_urls(query, limit=8, start=0):
                     continue
                 if found_url not in high_res_urls and found_url not in fallback_urls:
                     fallback_urls.append(found_url)
-                if len(fallback_urls) >= 20:
+                if len(fallback_urls) >= 100:
                     break
 
         # 3. Last Resort: Extract thumbnails from <img> tags
@@ -64,12 +64,12 @@ def fetch_image_urls(query, limit=8, start=0):
             if src.startswith("http") or src.startswith("data:image"):
                 if src not in high_res_urls and src not in fallback_urls:
                     fallback_urls.append(src)
-            if len(high_res_urls) + len(fallback_urls) >= 40:
+            if len(high_res_urls) + len(fallback_urls) >= 200:
                 break
                     
         # Combine: High-res first, then others
         all_urls = high_res_urls + fallback_urls
-        return all_urls[start : start + limit]
+        return all_urls[:limit]
 
     except requests.RequestException as e:
         print(f"Error fetching images for '{query}': {e}")
