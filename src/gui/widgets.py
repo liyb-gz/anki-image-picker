@@ -9,7 +9,7 @@ class ClickableImageLabel(QLabel):
         self.url = url
         self.setCursor(self.cursor().shape().PointingHandCursor)
         self.setScaledContents(True)
-        self.setFixedSize(150, 150)
+        self.setFixedSize(320, 320)
         self.setStyleSheet("border: 2px solid transparent;")
 
     def mousePressEvent(self, ev):

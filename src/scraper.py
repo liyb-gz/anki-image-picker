@@ -47,8 +47,9 @@ def fetch_image_urls(query, limit=8):
                 break
                 
         # 2. Use regex to find additional URLs (especially high-res or those in scripts)
-        # Matches common image extensions and Google's thumbnail pattern
+        # We look for the pattern ["https://...", height, width] which is common in Google's JSON metadata
         patterns = [
+            r'\["(https?://[^"]+)",\s*\d+,\s*\d+\]',
             r'["\'](https?://[^"\'\s]+\.(?:jpg|jpeg|png|gif|bmp))["\']',
             r'["\'](https?://encrypted-tbn[0-9]\.gstatic\.com/images\?q=tbn:[^"\'\s]+)["\']'
         ]
@@ -56,6 +57,9 @@ def fetch_image_urls(query, limit=8):
         for pattern in patterns:
             found_urls = re.findall(pattern, response.text)
             for found_url in found_urls:
+                # Prioritize original URLs over thumbnails
+                if "gstatic.com" in found_url and len(urls) > 0:
+                    continue
                 if found_url not in urls:
                     urls.append(found_url)
                 if len(urls) >= 30:
