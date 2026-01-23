@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, 
-    QPushButton, QLabel, QScrollArea, QWidget, QGridLayout
+    QPushButton, QLabel, QScrollArea, QWidget, QGridLayout, QFrame
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QThread, QThreadPool, QRunnable, pyqtSlot, QObject
 from PyQt6.QtGui import QPixmap, QShortcut, QKeySequence
@@ -105,8 +105,17 @@ class PickerDialog(QDialog):
         layout.addLayout(top_layout)
 
         # Hot-swap fields row
-        self.field_buttons_layout = QHBoxLayout()
-        layout.addLayout(self.field_buttons_layout)
+        fields_scroll = QScrollArea()
+        fields_scroll.setWidgetResizable(True)
+        fields_scroll.setFixedHeight(50)  # Approximate height for one row of buttons
+        fields_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        fields_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        fields_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        
+        fields_widget = QWidget()
+        self.field_buttons_layout = QHBoxLayout(fields_widget)
+        fields_scroll.setWidget(fields_widget)
+        layout.addWidget(fields_scroll)
 
         # Image Grid Area
         self.scroll_area = QScrollArea()
