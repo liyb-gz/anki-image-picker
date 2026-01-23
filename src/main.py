@@ -41,14 +41,9 @@ def on_quick_image_picker(browser):
     for nid in selected_notes:
         term = get_field_content(nid, source_field)
         if term:
-            # Apply suffix if present
-            full_term = term
-            if search_suffix:
-                full_term += f" {search_suffix.strip()}"
-                
             notes_data.append({
                 "id": nid,
-                "term": full_term,
+                "term": term,
                 "config": config  # Pass config so picker knows where to save
             })
             

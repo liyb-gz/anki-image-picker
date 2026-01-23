@@ -236,17 +236,26 @@ class PickerDialog(QDialog):
         if not query.strip():
             return
 
+        # Append suffix from config if not already present in query
+        note_data = self.notes[self.current_index]
+        config = note_data.get("config", {})
+        suffix = config.get("search_suffix", "").strip()
+        
+        full_query = query.strip()
+        if suffix and suffix not in full_query:
+            full_query += f" {suffix}"
+
         self.search_input.setStyleSheet("")
         self.progress_label.setText("Searching...")
         self.clear_grid()
 
         if mw:
             mw.taskman.run_in_background(
-                lambda: fetch_image_urls(query),
+                lambda: fetch_image_urls(full_query),
                 self.on_images_fetched
             )
         else:
-            fetcher = ImageFetcher(query)
+            fetcher = ImageFetcher(full_query)
             self._running_threads.append(fetcher)
             fetcher.finished.connect(lambda urls: self.on_images_fetched(urls))
             fetcher.error.connect(self.on_fetch_error)
