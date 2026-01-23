@@ -146,16 +146,25 @@ class PickerDialog(QDialog):
 
     def start_fetching(self):
         query = self.search_input.text()
+        self.search_input.setStyleSheet("")  # Reset feedback
+        
         if self.fetcher and self.fetcher.isRunning():
-            self.fetcher.terminate()
-            self.fetcher.wait()
+            self.fetcher.finished.disconnect()
+            self.fetcher.quit()
+            # We don't wait() here to avoid freezing the UI; 
+            # the old thread will finish in background.
         
         self.fetcher = ImageFetcher(query)
         self.fetcher.finished.connect(self.on_images_fetched)
+        self.fetcher.error.connect(lambda e: print(f"Fetch error: {e}"))
         self.fetcher.start()
 
     def on_images_fetched(self, urls):
         self.clear_grid()
+        if not urls:
+            self.search_input.setStyleSheet("border: 2px solid red;")
+            return
+            
         for i, url in enumerate(urls):
             label = ClickableImageLabel(url)
             # Shortcut visual aid
