@@ -12,7 +12,7 @@ except ImportError:
     mw = None
 from src.scraper import fetch_image_urls
 from src.gui.widgets import ClickableImageLabel
-from src.anki_utils import save_image_to_note
+from src.anki_utils import save_image_to_note, get_field_content
 
 class ImageFetcher(QThread):
     finished = pyqtSignal(list)
@@ -94,6 +94,7 @@ class PickerDialog(QDialog):
         # Top Bar: Search and Progress
         top_layout = QHBoxLayout()
         self.search_input = QLineEdit()
+        self.search_input.returnPressed.connect(self.start_fetching)
         self.search_button = QPushButton("Search")
         self.search_button.clicked.connect(self.start_fetching)
         self.progress_label = QLabel()
@@ -102,6 +103,10 @@ class PickerDialog(QDialog):
         top_layout.addWidget(self.search_button)
         top_layout.addWidget(self.progress_label)
         layout.addLayout(top_layout)
+
+        # Hot-swap fields row
+        self.field_buttons_layout = QHBoxLayout()
+        layout.addLayout(self.field_buttons_layout)
 
         # Image Grid Area
         self.scroll_area = QScrollArea()
@@ -165,12 +170,44 @@ class PickerDialog(QDialog):
     def update_current_note(self):
         if not self.notes:
             return
-        note = self.notes[self.current_index]
-        self.search_input.setText(note.get("term", ""))
+        note_data = self.notes[self.current_index]
+        self.search_input.setText(note_data.get("term", ""))
         self.progress_label.setText(f"Card {self.current_index + 1} of {len(self.notes)}")
         self.back_button.setEnabled(self.current_index > 0)
+        
+        self.update_field_buttons(note_data)
+        
         self.clear_grid()
         self.start_fetching()
+
+    def update_field_buttons(self, note_data):
+        # Clear existing buttons
+        while self.field_buttons_layout.count():
+            item = self.field_buttons_layout.takeAt(0)
+            if item:
+                widget = item.widget()
+                if widget:
+                    widget.deleteLater()
+        
+        if not mw:
+            return
+
+        try:
+            note = mw.col.get_note(note_data["id"])
+            fields = note.keys()
+            for field in fields:
+                btn = QPushButton(field)
+                btn.clicked.connect(lambda checked, f=field: self.on_field_clicked(f))
+                self.field_buttons_layout.addWidget(btn)
+        except Exception as e:
+            print(f"Error getting fields: {e}")
+
+    def on_field_clicked(self, field_name):
+        note_data = self.notes[self.current_index]
+        text = get_field_content(note_data["id"], field_name)
+        if text:
+            self.search_input.setText(text)
+            self.start_fetching()
 
     def start_fetching(self):
         query = self.search_input.text()
@@ -233,6 +270,7 @@ class PickerDialog(QDialog):
         self.reject()
 
     def clear_grid(self):
+        self.threadpool.clear()
         while self.grid_layout.count():
             item = self.grid_layout.takeAt(0)
             if item is None:
@@ -246,6 +284,7 @@ class PickerDialog(QDialog):
                         w = child.widget()
                         if w:
                             w.deleteLater()
+                sub_layout.deleteLater()
             
             widget = item.widget()
             if widget:
@@ -296,7 +335,7 @@ class PickerDialog(QDialog):
             image_data=image_data,
             field_name=config.get("target_field"),
             mode=config.get("mode"),
-            search_term=note_data["term"]
+            search_term=self.search_input.text()
         )
         
         if success:
