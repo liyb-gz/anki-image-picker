@@ -16,5 +16,6 @@ def test_config_manager_persistence():
     manager = ConfigManager()
     manager.save_note_type_config("Basic", {"source": "Front", "target": "Back"})
     
-    # Verify it calls writeConfig
-    assert mock_addon_manager.writeConfig.called
+    # Verify it calls writeConfig with correct name
+    args, _ = mock_addon_manager.writeConfig.call_args
+    assert args[0] == "anki_image_picker"

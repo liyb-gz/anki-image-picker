@@ -1,0 +1,9 @@
+{
+    "name": "Anki Image Picker",
+    "package": "anki_image_picker",
+    "version": "1.0",
+    "desc": "Quickly add images from Google Search to your Anki cards.",
+    "author": "Felix Li",
+    "homepage": "",
+    "conf": "config.json"
+}
