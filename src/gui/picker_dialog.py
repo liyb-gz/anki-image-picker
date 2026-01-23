@@ -314,6 +314,10 @@ class PickerDialog(QDialog):
             self.update_current_note()
 
     def on_skip(self):
+        self.history.append({"type": "skip"})
+        self._navigate_forward()
+
+    def _navigate_forward(self):
         if self.current_index < len(self.notes) - 1:
             self.current_index += 1
             self.update_current_note()
@@ -347,17 +351,32 @@ class PickerDialog(QDialog):
     def on_image_downloaded(self, image_data):
         note_data = self.notes[self.current_index]
         config = note_data.get("config", {})
+        field_name = config.get("target_field")
+        
+        # Store original content before saving
+        original_content = ""
+        if self.current_note and field_name in self.current_note:
+            original_content = self.current_note[field_name]
         
         success = save_image_to_note(
             note_id=note_data["id"],
             image_data=image_data,
-            field_name=config.get("target_field"),
+            field_name=field_name,
             mode=config.get("mode"),
             search_term=self.search_input.text()
         )
         
         if success:
-            self.on_skip()
+            # Record save in history
+            self.history.append({
+                "type": "save",
+                "note_id": note_data["id"],
+                "field_name": field_name,
+                "original_content": original_content,
+                "search_term": self.search_input.text()
+            })
+            # Navigate forward without adding a 'skip' entry
+            self._navigate_forward()
         else:
             self.on_download_error("Failed to save to Anki")
 
