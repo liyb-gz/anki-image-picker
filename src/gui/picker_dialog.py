@@ -261,7 +261,16 @@ class PickerDialog(QDialog):
             fetcher.finished.connect(lambda: self._cleanup_thread(fetcher))
             fetcher.start()
 
-    def on_images_fetched(self, urls):
+    def on_images_fetched(self, result):
+        if mw:
+            try:
+                urls = result.result()
+            except Exception as e:
+                self.on_fetch_error(str(e))
+                return
+        else:
+            urls = result
+
         self.clear_grid()
         self.progress_label.setText("")
         
@@ -285,22 +294,51 @@ class PickerDialog(QDialog):
             
             label.clicked.connect(self.on_image_selected)
             self.queue_thumbnail_load(label, url)
-            
-        for i, url in enumerate(urls):
-            label = ClickableImageLabel(url)
-            # Shortcut visual aid
-            if i < 8:
-                container = QVBoxLayout()
-                container.addWidget(label)
-                shortcut_label = QLabel(f"[{i+1}]")
-                shortcut_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                container.addWidget(shortcut_label)
-                self.grid_layout.addLayout(container, i // 4, i % 4)
-            else:
-                self.grid_layout.addWidget(label, i // 4, i % 4)
-            
-            label.clicked.connect(self.on_image_selected)
-            self.queue_thumbnail_load(label, url)
+
+    def on_image_downloaded(self, result):
+        if mw:
+            try:
+                image_data = result.result()
+            except Exception as e:
+                self.on_download_error(str(e))
+                return
+        else:
+            image_data = result
+
+        if not image_data or not isinstance(image_data, bytes):
+            self.on_download_error("Invalid image data received")
+            return
+
+        note_data = self.notes[self.current_index]
+        config = note_data.get("config", {})
+        field_name = config.get("target_field")
+        
+        # Store original content before saving
+        original_content = ""
+        if self.current_note and field_name in self.current_note:
+            original_content = self.current_note[field_name]
+        
+        success = save_image_to_note(
+            note_id=note_data["id"],
+            image_data=image_data,
+            field_name=field_name,
+            mode=config.get("mode"),
+            search_term=self.search_input.text()
+        )
+        
+        if success:
+            # Record save in history
+            self.history.append({
+                "type": "save",
+                "note_id": note_data["id"],
+                "field_name": field_name,
+                "original_content": original_content,
+                "search_term": self.search_input.text()
+            })
+            # Navigate forward without adding a 'skip' entry
+            self._navigate_forward()
+        else:
+            self.on_download_error("Failed to save to Anki")
 
     def queue_thumbnail_load(self, label, url):
         worker = ThumbnailWorker(label, url)
@@ -454,6 +492,7 @@ class PickerDialog(QDialog):
             return
 
         note_data = self.notes[self.current_index]
+
         config = note_data.get("config", {})
         field_name = config.get("target_field")
         
