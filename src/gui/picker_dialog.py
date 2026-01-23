@@ -184,7 +184,10 @@ class PickerDialog(QDialog):
         note_data = self.notes[self.current_index]
         self.search_input.setText(note_data.get("term", ""))
         self.progress_label.setText(f"Card {self.current_index + 1} of {len(self.notes)}")
-        self.back_button.setEnabled(self.current_index > 0)
+        
+        # Update button states
+        self.back_button.setEnabled(len(self.history) > 0)
+        self.revert_button.setEnabled(len(self.history) > 0)
         
         self.current_note = None
         if mw:
@@ -285,6 +288,14 @@ class PickerDialog(QDialog):
             label.setText("Invalid Image")
 
     def on_revert(self):
+        while self.history:
+            last_action = self.history.pop()
+            if last_action["type"] == "save":
+                restore_field_content(
+                    last_action["note_id"], 
+                    last_action["field_name"], 
+                    last_action["original_content"]
+                )
         self.reject()
 
     def clear_grid(self):
@@ -309,9 +320,20 @@ class PickerDialog(QDialog):
                 widget.deleteLater()
 
     def on_back(self):
-        if self.current_index > 0:
-            self.current_index -= 1
-            self.update_current_note()
+        if not self.history:
+            return
+            
+        last_action = self.history.pop()
+        
+        if last_action["type"] == "save":
+            restore_field_content(
+                last_action["note_id"], 
+                last_action["field_name"], 
+                last_action["original_content"]
+            )
+            
+        self.current_index -= 1
+        self.update_current_note()
 
     def on_skip(self):
         self.history.append({"type": "skip"})
