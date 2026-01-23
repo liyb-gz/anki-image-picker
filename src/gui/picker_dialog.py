@@ -288,14 +288,31 @@ class PickerDialog(QDialog):
             label.setText("Invalid Image")
 
     def on_revert(self):
-        while self.history:
-            last_action = self.history.pop()
-            if last_action["type"] == "save":
-                restore_field_content(
-                    last_action["note_id"], 
-                    last_action["field_name"], 
-                    last_action["original_content"]
-                )
+        if not self.history:
+            self.reject()
+            return
+
+        if mw:
+            mw.checkpoint("Revert Images")
+            mw.progress.start(max=len(self.history), label="Reverting changes...", parent=self)
+        
+        try:
+            while self.history:
+                last_action = self.history.pop()
+                if last_action["type"] == "save":
+                    success = restore_field_content(
+                        last_action["note_id"], 
+                        last_action["field_name"], 
+                        last_action["original_content"]
+                    )
+                    if not success:
+                        print(f"Failed to restore note {last_action['note_id']}")
+                if mw:
+                    mw.progress.update()
+        finally:
+            if mw:
+                mw.progress.finish()
+        
         self.reject()
 
     def clear_grid(self):
@@ -326,11 +343,13 @@ class PickerDialog(QDialog):
         last_action = self.history.pop()
         
         if last_action["type"] == "save":
-            restore_field_content(
+            success = restore_field_content(
                 last_action["note_id"], 
                 last_action["field_name"], 
                 last_action["original_content"]
             )
+            if not success:
+                print(f"Failed to restore note {last_action['note_id']}")
             
         self.current_index -= 1
         self.update_current_note()
