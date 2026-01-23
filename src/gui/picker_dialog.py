@@ -87,7 +87,7 @@ class PickerDialog(QDialog):
         self.current_note = None
         self.history = []
         self.setWindowTitle("Anki Image Picker")
-        self.resize(1024, 800)
+        self.resize(800, 600)
         self.init_ui()
 
     def init_ui(self):
@@ -260,9 +260,9 @@ class PickerDialog(QDialog):
                 shortcut_label = QLabel(f"[{i+1}]")
                 shortcut_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 container.addWidget(shortcut_label)
-                self.grid_layout.addLayout(container, i // 2, i % 2)
+                self.grid_layout.addLayout(container, i // 4, i % 4)
             else:
-                self.grid_layout.addWidget(label, i // 2, i % 2)
+                self.grid_layout.addWidget(label, i // 4, i % 4)
             
             label.clicked.connect(self.on_image_selected)
             self.queue_thumbnail_load(label, url)
@@ -283,7 +283,7 @@ class PickerDialog(QDialog):
         pixmap = QPixmap()
         pixmap.loadFromData(image_data)
         if not pixmap.isNull():
-            label.setPixmap(pixmap.scaled(320, 320, Qt.AspectRatioMode.KeepAspectRatio))
+            label.setPixmap(pixmap.scaled(150, 150, Qt.AspectRatioMode.KeepAspectRatio))
         else:
             label.setText("Invalid Image")
 
