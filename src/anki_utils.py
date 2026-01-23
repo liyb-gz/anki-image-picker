@@ -1,5 +1,4 @@
 import re
-import os
 from bs4 import BeautifulSoup
 
 def get_field_names(note_ids):

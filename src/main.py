@@ -34,7 +34,6 @@ def on_quick_image_picker(browser):
     config_manager.save_note_type_config(model_name, config)
     
     source_field = config["source_field"]
-    search_suffix = config.get("search_suffix", "")
     
     # 5. Prepare note data for Picker
     notes_data = []

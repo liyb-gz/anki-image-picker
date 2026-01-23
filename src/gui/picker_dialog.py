@@ -24,13 +24,14 @@ class ImageFetcher(QThread):
     finished = pyqtSignal(list)
     error = pyqtSignal(str)
 
-    def __init__(self, query):
+    def __init__(self, query, start_index=0):
         super().__init__()
         self.query = query
+        self.start_index = start_index
 
     def run(self):
         try:
-            urls = fetch_image_urls(self.query)
+            urls = fetch_image_urls(self.query, start=self.start_index)
             self.finished.emit(urls)
         except Exception as e:
             self.error.emit(str(e))
@@ -87,6 +88,7 @@ class PickerDialog(QDialog):
         super().__init__(parent)
         self.notes = notes
         self.current_index = 0
+        self.current_offset = 0
         self.fetcher = None
         self.downloader = None
         self.threadpool = QThreadPool()
@@ -137,17 +139,20 @@ class PickerDialog(QDialog):
         # Footer Buttons
         footer_layout = QHBoxLayout()
         self.back_button = QPushButton("Back")
+        self.load_more_button = QPushButton("Load More")
         self.skip_button = QPushButton("Skip")
         self.abort_button = QPushButton("Abort")
         self.revert_button = QPushButton("Revert")
         
         self.back_button.clicked.connect(self.on_back)
+        self.load_more_button.clicked.connect(self.on_load_more)
         self.skip_button.clicked.connect(self.on_skip)
         self.abort_button.clicked.connect(self.reject)
         self.revert_button.clicked.connect(self.on_revert)
         
         footer_layout.addWidget(self.back_button)
         footer_layout.addStretch()
+        footer_layout.addWidget(self.load_more_button)
         footer_layout.addWidget(self.skip_button)
         footer_layout.addWidget(self.revert_button)
         footer_layout.addWidget(self.abort_button)
@@ -232,6 +237,15 @@ class PickerDialog(QDialog):
             self.start_fetching()
 
     def start_fetching(self):
+        self.current_offset = 0
+        self.clear_grid()
+        self._fetch_images()
+
+    def on_load_more(self):
+        self.current_offset += 8
+        self._fetch_images()
+
+    def _fetch_images(self):
         query = self.search_input.text()
         if not query.strip():
             return
@@ -242,20 +256,19 @@ class PickerDialog(QDialog):
         suffix = config.get("search_suffix", "").strip()
         
         full_query = query.strip()
-        if suffix and suffix not in full_query:
+        if suffix and suffix.lower() not in full_query.lower():
             full_query += f" {suffix}"
 
         self.search_input.setStyleSheet("")
         self.progress_label.setText("Searching...")
-        self.clear_grid()
 
         if mw:
             mw.taskman.run_in_background(
-                lambda: fetch_image_urls(full_query),
+                lambda: fetch_image_urls(full_query, start=self.current_offset),
                 self.on_images_fetched
             )
         else:
-            fetcher = ImageFetcher(full_query)
+            fetcher = ImageFetcher(full_query, start_index=self.current_offset)
             self._running_threads.append(fetcher)
             fetcher.finished.connect(lambda urls: self.on_images_fetched(urls))
             fetcher.error.connect(self.on_fetch_error)
@@ -272,25 +285,29 @@ class PickerDialog(QDialog):
         else:
             urls = result
 
-        self.clear_grid()
         self.progress_label.setText("")
         
         if not urls:
-            self.search_input.setStyleSheet("border: 2px solid red;")
-            self.progress_label.setText("No results")
+            if self.current_offset == 0:
+                self.search_input.setStyleSheet("border: 2px solid red;")
+                self.progress_label.setText("No results")
+            else:
+                self.progress_label.setText("No more results")
             return
             
+        current_count = self.grid_layout.count()
         for i, url in enumerate(urls):
+            total_idx = current_count + i
             label = ClickableImageLabel(url)
-            if i < 8:
+            if total_idx < 8:
                 container = QVBoxLayout()
                 container.addWidget(label)
-                shortcut_label = QLabel(f"[{i+1}]")
+                shortcut_label = QLabel(f"[{total_idx+1}]")
                 shortcut_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 container.addWidget(shortcut_label)
-                self.grid_layout.addLayout(container, i // 4, i % 4)
+                self.grid_layout.addLayout(container, total_idx // 4, total_idx % 4)
             else:
-                self.grid_layout.addWidget(label, i // 4, i % 4)
+                self.grid_layout.addWidget(label, total_idx // 4, total_idx % 4)
             
             label.clicked.connect(self.on_image_selected)
             self.queue_thumbnail_load(label, url)

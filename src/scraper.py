@@ -2,7 +2,7 @@ import requests
 import re
 from bs4 import BeautifulSoup
 
-def fetch_image_urls(query, limit=8):
+def fetch_image_urls(query, limit=8, start=0):
     """
     Fetches image URLs from Google Images based on a search query.
     Prioritizes high-resolution images found in metadata.
@@ -10,7 +10,7 @@ def fetch_image_urls(query, limit=8):
     if not query or not query.strip():
         return []
 
-    url = f"https://www.google.com/search?q={query}&tbm=isch"
+    url = f"https://www.google.com/search?q={query}&tbm=isch&start={start}"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
@@ -69,7 +69,7 @@ def fetch_image_urls(query, limit=8):
                     
         # Combine: High-res first, then others
         all_urls = high_res_urls + fallback_urls
-        return all_urls[:limit]
+        return all_urls[start : start + limit]
 
     except requests.RequestException as e:
         print(f"Error fetching images for '{query}': {e}")
