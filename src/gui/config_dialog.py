@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
     QComboBox, QRadioButton, QButtonGroup, 
-    QDialogButtonBox
+    QPushButton, QDialogButtonBox
 )
 
 class ConfigDialog(QDialog):
@@ -67,8 +67,12 @@ class ConfigDialog(QDialog):
 
         # Buttons
         self.button_box = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+            QDialogButtonBox.StandardButton.Cancel
         )
+        self.start_button = QPushButton("Start")
+        self.start_button.setDefault(True)
+        self.button_box.addButton(self.start_button, QDialogButtonBox.ButtonRole.AcceptRole)
+        
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
         layout.addWidget(self.button_box)
