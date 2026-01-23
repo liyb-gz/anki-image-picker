@@ -12,7 +12,7 @@ except ImportError:
     mw = None
 from src.scraper import fetch_image_urls
 from src.gui.widgets import ClickableImageLabel
-from src.anki_utils import save_image_to_note, get_field_content
+from src.anki_utils import save_image_to_note, get_field_content, restore_field_content
 
 class ImageFetcher(QThread):
     finished = pyqtSignal(list)
@@ -85,6 +85,7 @@ class PickerDialog(QDialog):
         self.downloader = None
         self.threadpool = QThreadPool()
         self.current_note = None
+        self.history = []
         self.setWindowTitle("Anki Image Picker")
         self.resize(800, 600)
         self.init_ui()
