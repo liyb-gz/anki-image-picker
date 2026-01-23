@@ -89,6 +89,7 @@ class PickerDialog(QDialog):
         self.notes = notes
         self.current_index = 0
         self.current_offset = 0
+        self.seen_urls = set()
         self.fetcher = None
         self.downloader = None
         self.threadpool = QThreadPool()
@@ -102,15 +103,21 @@ class PickerDialog(QDialog):
     def init_ui(self):
         layout = QVBoxLayout(self)
 
-        # Top Bar: Search and Progress
+        # Top Bar: Search, Suffix and Progress
         top_layout = QHBoxLayout()
         self.search_input = QLineEdit()
         self.search_input.returnPressed.connect(self.start_fetching)
+        self.suffix_input = QLineEdit()
+        self.suffix_input.setPlaceholderText("Suffix...")
+        self.suffix_input.setFixedWidth(100)
+        self.suffix_input.returnPressed.connect(self.start_fetching)
+        
         self.search_button = QPushButton("Search")
         self.search_button.clicked.connect(self.start_fetching)
         self.progress_label = QLabel()
         
         top_layout.addWidget(self.search_input)
+        top_layout.addWidget(self.suffix_input)
         top_layout.addWidget(self.search_button)
         top_layout.addWidget(self.progress_label)
         layout.addLayout(top_layout)
@@ -192,6 +199,10 @@ class PickerDialog(QDialog):
             return
         note_data = self.notes[self.current_index]
         self.search_input.setText(note_data.get("term", ""))
+        
+        config = note_data.get("config", {})
+        self.suffix_input.setText(config.get("search_suffix", ""))
+        
         self.progress_label.setText(f"Card {self.current_index + 1} of {len(self.notes)}")
         
         self.back_button.setEnabled(len(self.history) > 0)
@@ -205,7 +216,6 @@ class PickerDialog(QDialog):
                 print(f"Error fetching note: {e}")
 
         self.update_field_buttons()
-        self.clear_grid()
         self.start_fetching()
 
     def update_field_buttons(self):
@@ -238,23 +248,22 @@ class PickerDialog(QDialog):
 
     def start_fetching(self):
         self.current_offset = 0
+        self.seen_urls = set()
         self.clear_grid()
         self._fetch_images()
 
     def on_load_more(self):
-        self.current_offset += 8
+        # Using a larger jump to ensure we get past the first batch of results
+        self.current_offset += 20
         self._fetch_images()
 
     def _fetch_images(self):
         query = self.search_input.text()
+        suffix = self.suffix_input.text().strip()
+        
         if not query.strip():
             return
 
-        # Append suffix from config if not already present in query
-        note_data = self.notes[self.current_index]
-        config = note_data.get("config", {})
-        suffix = config.get("search_suffix", "").strip()
-        
         full_query = query.strip()
         if suffix and suffix.lower() not in full_query.lower():
             full_query += f" {suffix}"
@@ -287,7 +296,12 @@ class PickerDialog(QDialog):
 
         self.progress_label.setText("")
         
-        if not urls:
+        # Filter out already seen URLs to avoid duplicates in the grid
+        new_urls = [u for u in urls if u not in self.seen_urls]
+        for u in new_urls:
+            self.seen_urls.add(u)
+
+        if not new_urls:
             if self.current_offset == 0:
                 self.search_input.setStyleSheet("border: 2px solid red;")
                 self.progress_label.setText("No results")
@@ -296,9 +310,10 @@ class PickerDialog(QDialog):
             return
             
         current_count = self.grid_layout.count()
-        for i, url in enumerate(urls):
+        for i, url in enumerate(new_urls):
             total_idx = current_count + i
             label = ClickableImageLabel(url)
+            # Only add shortcuts for the first 8 items overall
             if total_idx < 8:
                 container = QVBoxLayout()
                 container.addWidget(label)
