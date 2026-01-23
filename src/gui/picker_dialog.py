@@ -140,6 +140,7 @@ class PickerDialog(QDialog):
         self.scroll_area.setWidgetResizable(True)
         self.grid_widget = QWidget()
         self.grid_layout = QGridLayout(self.grid_widget)
+        self.grid_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.scroll_area.setWidget(self.grid_widget)
         layout.addWidget(self.scroll_area)
 
@@ -423,7 +424,7 @@ class PickerDialog(QDialog):
         pixmap = QPixmap()
         pixmap.loadFromData(image_data)
         if not pixmap.isNull():
-            label.setPixmap(pixmap.scaled(150, 150, Qt.AspectRatioMode.KeepAspectRatio))
+            label.setPixmap(pixmap.scaledToWidth(150, Qt.TransformationMode.SmoothTransformation))
         else:
             label.setText("Invalid Image")
 

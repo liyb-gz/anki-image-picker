@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QLabel
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import pyqtSignal, Qt
 
 class ClickableImageLabel(QLabel):
     clicked = pyqtSignal(str)
@@ -8,8 +8,8 @@ class ClickableImageLabel(QLabel):
         super().__init__(parent)
         self.url = url
         self.setCursor(self.cursor().shape().PointingHandCursor)
-        self.setScaledContents(True)
-        self.setFixedSize(150, 150)
+        self.setFixedWidth(150)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setStyleSheet("border: 2px solid transparent;")
 
     def mousePressEvent(self, ev):
