@@ -116,7 +116,7 @@ class PickerDialog(QDialog):
         # Hot-swap fields row
         fields_scroll = QScrollArea()
         fields_scroll.setWidgetResizable(True)
-        fields_scroll.setFixedHeight(50)  # Approximate height for one row of buttons
+        fields_scroll.setFixedHeight(50)
         fields_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         fields_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         fields_scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -161,17 +161,14 @@ class PickerDialog(QDialog):
         self.update_current_note()
 
     def select_by_index(self, index):
-        # Logic to find the widget at index and trigger its selection
         labels = []
         for i in range(self.grid_layout.count()):
             item = self.grid_layout.itemAt(i)
             if item is None:
                 continue
             
-            # Check if it's the container layout (for first 8 images)
             sub_layout = item.layout()
             if sub_layout:
-                # The label is the first item in the container layout
                 child = sub_layout.itemAt(0)
                 if child:
                     w = child.widget()
@@ -192,7 +189,6 @@ class PickerDialog(QDialog):
         self.search_input.setText(note_data.get("term", ""))
         self.progress_label.setText(f"Card {self.current_index + 1} of {len(self.notes)}")
         
-        # Update button states
         self.back_button.setEnabled(len(self.history) > 0)
         self.revert_button.setEnabled(len(self.history) > 0)
         
@@ -204,12 +200,10 @@ class PickerDialog(QDialog):
                 print(f"Error fetching note: {e}")
 
         self.update_field_buttons()
-        
         self.clear_grid()
         self.start_fetching()
 
     def update_field_buttons(self):
-        # Clear existing buttons
         while self.field_buttons_layout.count():
             item = self.field_buttons_layout.takeAt(0)
             if item:
@@ -242,18 +236,16 @@ class PickerDialog(QDialog):
         if not query.strip():
             return
 
-        self.search_input.setStyleSheet("")  # Reset feedback
+        self.search_input.setStyleSheet("")
         self.progress_label.setText("Searching...")
         self.clear_grid()
 
         if mw:
-            # Use Anki's taskman for safe background processing
             mw.taskman.run_in_background(
                 lambda: fetch_image_urls(query),
                 self.on_images_fetched
             )
         else:
-            # Fallback for non-Anki environment
             fetcher = ImageFetcher(query)
             self._running_threads.append(fetcher)
             fetcher.finished.connect(lambda urls: self.on_images_fetched(urls))
@@ -281,7 +273,6 @@ class PickerDialog(QDialog):
             
         for i, url in enumerate(urls):
             label = ClickableImageLabel(url)
-            # Shortcut visual aid
             if i < 8:
                 container = QVBoxLayout()
                 container.addWidget(label)
@@ -294,6 +285,31 @@ class PickerDialog(QDialog):
             
             label.clicked.connect(self.on_image_selected)
             self.queue_thumbnail_load(label, url)
+
+    def on_image_selected(self, url):
+        self.progress_label.setText("Saving...")
+        if mw:
+            mw.taskman.run_in_background(
+                lambda: self._download_image(url),
+                self.on_image_downloaded
+            )
+        else:
+            downloader = ImageDownloader(url)
+            self._running_threads.append(downloader)
+            downloader.finished.connect(self.on_image_downloaded)
+            downloader.error.connect(self.on_download_error)
+            downloader.finished.connect(lambda: self._cleanup_thread(downloader))
+            downloader.start()
+
+    def _download_image(self, url):
+        if url.startswith("data:image"):
+            import base64
+            header, data = url.split(",", 1)
+            return base64.b64decode(data)
+        else:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            return response.content
 
     def on_image_downloaded(self, result):
         if mw:
@@ -313,7 +329,6 @@ class PickerDialog(QDialog):
         config = note_data.get("config", {})
         field_name = config.get("target_field")
         
-        # Store original content before saving
         original_content = ""
         if self.current_note and field_name in self.current_note:
             original_content = self.current_note[field_name]
@@ -327,7 +342,6 @@ class PickerDialog(QDialog):
         )
         
         if success:
-            # Record save in history
             self.history.append({
                 "type": "save",
                 "note_id": note_data["id"],
@@ -335,10 +349,22 @@ class PickerDialog(QDialog):
                 "original_content": original_content,
                 "search_term": self.search_input.text()
             })
-            # Navigate forward without adding a 'skip' entry
             self._navigate_forward()
         else:
             self.on_download_error("Failed to save to Anki")
+
+    def on_download_error(self, error_msg):
+        print(f"Download/Save error: {error_msg}")
+        self.progress_label.setText("Error saving image")
+
+    def on_fetch_error(self, error_msg):
+        print(f"Fetch error: {error_msg}")
+        self.progress_label.setText("Search failed")
+        self.search_input.setStyleSheet("border: 2px solid red;")
+
+    def _cleanup_thread(self, thread):
+        if thread in self._running_threads:
+            self._running_threads.remove(thread)
 
     def queue_thumbnail_load(self, label, url):
         worker = ThumbnailWorker(label, url)
@@ -348,11 +374,9 @@ class PickerDialog(QDialog):
     def on_thumbnail_loaded(self, label, image_data):
         if sip.isdeleted(label):
             return
-
         if not image_data:
             label.setText("Error")
             return
-        
         pixmap = QPixmap()
         pixmap.loadFromData(image_data)
         if not pixmap.isNull():
@@ -364,11 +388,9 @@ class PickerDialog(QDialog):
         if not self.history:
             self.reject()
             return
-
         if mw:
             mw.checkpoint("Revert Images")
             mw.progress.start(max=len(self.history), label="Reverting changes...", parent=self)
-        
         try:
             while self.history:
                 last_action = self.history.pop()
@@ -385,7 +407,6 @@ class PickerDialog(QDialog):
         finally:
             if mw:
                 mw.progress.finish()
-        
         self.reject()
 
     def clear_grid(self):
@@ -394,7 +415,6 @@ class PickerDialog(QDialog):
             item = self.grid_layout.takeAt(0)
             if item is None:
                 continue
-            
             sub_layout = item.layout()
             if sub_layout:
                 while sub_layout.count():
@@ -404,7 +424,6 @@ class PickerDialog(QDialog):
                         if w:
                             w.deleteLater()
                 sub_layout.deleteLater()
-            
             widget = item.widget()
             if widget:
                 widget.deleteLater()
@@ -412,9 +431,7 @@ class PickerDialog(QDialog):
     def on_back(self):
         if not self.history:
             return
-            
         last_action = self.history.pop()
-        
         if last_action["type"] == "save":
             success = restore_field_content(
                 last_action["note_id"], 
@@ -423,7 +440,6 @@ class PickerDialog(QDialog):
             )
             if not success:
                 print(f"Failed to restore note {last_action['note_id']}")
-            
         self.current_index -= 1
         self.update_current_note()
 
@@ -448,86 +464,6 @@ class PickerDialog(QDialog):
             mw.reset()
         super().reject()
 
-    def on_image_selected(self, url):
-        """
-        When an image is selected, download it in a background thread.
-        """
-        self.progress_label.setText("Saving...")
-        
-        if mw:
-            mw.taskman.run_in_background(
-                lambda: self._download_image(url),
-                self.on_image_downloaded
-            )
-        else:
-            downloader = ImageDownloader(url)
-            self._running_threads.append(downloader)
-            downloader.finished.connect(self.on_image_downloaded)
-            downloader.error.connect(self.on_download_error)
-            downloader.finished.connect(lambda: self._cleanup_thread(downloader))
-            downloader.start()
-
-    def _download_image(self, url):
-        if url.startswith("data:image"):
-            import base64
-            header, data = url.split(",", 1)
-            return base64.b64decode(data)
-        else:
-            response = requests.get(url, timeout=10)
-            response.raise_for_status()
-            return response.content
-
-    def on_fetch_error(self, error_msg):
-        print(f"Fetch error: {error_msg}")
-        self.progress_label.setText(f"Search failed")
-        self.search_input.setStyleSheet("border: 2px solid red;")
-
-    def _cleanup_thread(self, thread):
-        if thread in self._running_threads:
-            self._running_threads.remove(thread)
-
-    def on_image_downloaded(self, image_data):
-        if not image_data or not isinstance(image_data, bytes):
-            self.on_download_error("Invalid image data received")
-            return
-
-        note_data = self.notes[self.current_index]
-
-        config = note_data.get("config", {})
-        field_name = config.get("target_field")
-        
-        # Store original content before saving
-        original_content = ""
-        if self.current_note and field_name in self.current_note:
-            original_content = self.current_note[field_name]
-        
-        success = save_image_to_note(
-            note_id=note_data["id"],
-            image_data=image_data,
-            field_name=field_name,
-            mode=config.get("mode"),
-            search_term=self.search_input.text()
-        )
-        
-        if success:
-            # Record save in history
-            self.history.append({
-                "type": "save",
-                "note_id": note_data["id"],
-                "field_name": field_name,
-                "original_content": original_content,
-                "search_term": self.search_input.text()
-            })
-            # Navigate forward without adding a 'skip' entry
-            self._navigate_forward()
-        else:
-            self.on_download_error("Failed to save to Anki")
-
-    def on_download_error(self, error_msg):
-        print(f"Download/Save error: {error_msg}")
-        self.progress_label.setText("Error saving image")
-        self.update_current_note()
-
 if __name__ == "__main__":
     import sys
     from PyQt6.QtWidgets import QApplication
@@ -540,4 +476,3 @@ if __name__ == "__main__":
     dialog = PickerDialog(notes)
     dialog.show()
     sys.exit(app.exec())
-
