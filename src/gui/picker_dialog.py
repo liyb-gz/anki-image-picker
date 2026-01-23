@@ -10,14 +10,18 @@ from src.gui.widgets import ClickableImageLabel
 
 class ImageFetcher(QThread):
     finished = pyqtSignal(list)
+    error = pyqtSignal(str)
 
     def __init__(self, query):
         super().__init__()
         self.query = query
 
     def run(self):
-        urls = fetch_image_urls(self.query)
-        self.finished.emit(urls)
+        try:
+            urls = fetch_image_urls(self.query)
+            self.finished.emit(urls)
+        except Exception as e:
+            self.error.emit(str(e))
 
 class WorkerSignals(QObject):
     finished = pyqtSignal(object, bytes)
@@ -185,8 +189,7 @@ class PickerDialog(QDialog):
             label.setText("Invalid Image")
 
     def on_revert(self):
-        # Placeholder handler for now
-        pass
+        self.reject()
 
     def clear_grid(self):
         while self.grid_layout.count():
