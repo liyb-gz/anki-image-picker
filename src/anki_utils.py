@@ -131,3 +131,30 @@ def restore_field_content(note_id, field_name, content):
     except Exception as e:
         print(f"Error restoring note {note_id}: {e}")
     return False
+
+class ConfigManager:
+    def __init__(self):
+        from aqt import mw
+        self.mw = mw
+
+    def get_all_config(self):
+        return self.mw.addonManager.getConfig("anki_image_adder") or {}
+
+    def get_note_type_config(self, model_name):
+        config = self.get_all_config()
+        return config.get("models", {}).get(model_name, {})
+
+    def save_note_type_config(self, model_name, model_config):
+        config = self.get_all_config()
+        if "models" not in config:
+            config["models"] = {}
+        config["models"][model_name] = model_config
+        self.mw.addonManager.writeConfig("anki_image_adder", config)
+
+    def get_global_defaults(self):
+        config = self.get_all_config()
+        return {
+            "search_suffix": config.get("search_suffix", ""),
+            "max_width": config.get("max_width", 320),
+            "max_height": config.get("max_height", 320)
+        }
