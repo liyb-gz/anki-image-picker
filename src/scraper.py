@@ -47,17 +47,85 @@ def _make_request(url, params=None, cookies=None, max_retries=3, timeout=15):
             return None
     return None
 
+def _is_blocked_domain(url):
+    """Returns True if URL is from a domain known to block direct image access."""
+    if not url:
+        return False
+    url_lower = url.lower()
+    
+    # Domains that frequently return HTML/403/redirects for direct image access
+    blocked_patterns = [
+        "pinterest.com",
+        "pinterest.",
+        "pinimg.com",  # Pinterest CDN often requires referrer
+        "shutterstock.com",
+        "gettyimages.com",
+        "istockphoto.com",
+        "alamy.com",
+        "dreamstime.com",
+        "123rf.com",
+        "depositphotos.com",
+        "stock.adobe.com",
+        "fotolia.com",
+        # Social media that blocks hotlinking
+        "facebook.com",
+        "fbcdn.net",
+        "instagram.com",
+        "cdninstagram.com",
+    ]
+    return any(pattern in url_lower for pattern in blocked_patterns)
+
 def _is_image_url(url):
-    """Checks if a URL likely points to an image based on its extension."""
+    """Checks if a URL likely points to an image based on its extension or path patterns."""
     if not url or not isinstance(url, str):
         return False
-    # Skip data URLs
+    
+    # Skip blocked domains
+    if _is_blocked_domain(url):
+        return False
+    
+    # Data URLs are always valid images
     if url.startswith("data:image"):
         return True
     
-    image_extensions = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"]
-    url_lower = url.lower().split("?")[0] # Check before query params
-    return any(url_lower.endswith(ext) for ext in image_extensions) or any(ext in url_lower for ext in image_extensions)
+    # Normalize URL for checking
+    url_lower = url.lower()
+    
+    # Remove query params and fragments for extension check
+    path_part = url_lower.split("?")[0].split("#")[0]
+    
+    image_extensions = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".avif", ".svg"]
+    
+    # Check if path ends with image extension
+    if any(path_part.endswith(ext) for ext in image_extensions):
+        return True
+    
+    # Check if extension appears in the path (e.g., /image.jpg/resize)
+    if any(ext in path_part for ext in image_extensions):
+        return True
+    
+    # Check query params for image extensions (e.g., ?file=image.jpg)
+    if "?" in url_lower:
+        query_part = url_lower.split("?")[1]
+        if any(ext in query_part for ext in image_extensions):
+            return True
+    
+    # Known image CDN patterns that may not have extensions
+    image_cdn_patterns = [
+        "images.unsplash.com",
+        "i.imgur.com",
+        "pbs.twimg.com",
+        "cdn.pixabay.com",
+        "/photo/",
+        "/image/",
+        "/img/",
+        "imagecdn",
+        "imgix",
+    ]
+    if any(pattern in url_lower for pattern in image_cdn_patterns):
+        return True
+    
+    return False
 
 def fetch_image_urls(query, limit=8, start=0, provider="google"):
     """

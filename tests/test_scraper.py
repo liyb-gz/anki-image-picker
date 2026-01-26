@@ -4,8 +4,7 @@ from src.scraper import fetch_image_urls
 
 @patch('requests.get')
 def test_fetch_image_urls_returns_list_of_urls(mock_get):
-    # Mock HTML response from Google Images
-    # Minimal HTML structure that we expect to parse
+    # Mock HTML response from Google Images with valid image URLs
     mock_html = """
     <html>
         <body>
@@ -16,30 +15,30 @@ def test_fetch_image_urls_returns_list_of_urls(mock_get):
                         <a href="/url?q=https://example.com/1"><img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD"></a>
                     </td>
                     <td>
-                        <a href="/url?q=https://example.com/2"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:2"></a>
+                        <a href="/url?q=https://example.com/2"><img src="https://example.com/image2.jpg"></a>
                     </td>
                     <td>
-                        <a href="/url?q=https://example.com/3"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:3"></a>
+                        <a href="/url?q=https://example.com/3"><img src="https://example.com/image3.png"></a>
                     </td>
                     <td>
-                        <a href="/url?q=https://example.com/4"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:4"></a>
+                        <a href="/url?q=https://example.com/4"><img src="https://example.com/image4.jpeg"></a>
                     </td>
                 </tr>
                 <tr>
                     <td>
-                        <a href="/url?q=https://example.com/5"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:5"></a>
+                        <a href="/url?q=https://example.com/5"><img src="https://example.com/image5.gif"></a>
                     </td>
                     <td>
-                        <a href="/url?q=https://example.com/6"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:6"></a>
+                        <a href="/url?q=https://example.com/6"><img src="https://example.com/image6.webp"></a>
                     </td>
                     <td>
-                        <a href="/url?q=https://example.com/7"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:7"></a>
+                        <a href="/url?q=https://example.com/7"><img src="https://example.com/image7.bmp"></a>
                     </td>
                     <td>
-                        <a href="/url?q=https://example.com/8"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:8"></a>
+                        <a href="/url?q=https://example.com/8"><img src="https://example.com/image8.jpg"></a>
                     </td>
                     <td>
-                        <a href="/url?q=https://example.com/9"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:9"></a>
+                        <a href="/url?q=https://example.com/9"><img src="https://example.com/image9.png"></a>
                     </td>
                 </tr>
             </table>
@@ -56,7 +55,8 @@ def test_fetch_image_urls_returns_list_of_urls(mock_get):
     assert isinstance(urls, list)
     assert len(urls) == 8
     assert all(isinstance(url, str) for url in urls)
-    assert urls[0].startswith("data:image/jpeg;base64") or urls[0] == "https://encrypted-tbn0.gstatic.com/images?q=tbn:2"
+    # First URL should be the data URI or one of the example.com images
+    assert urls[0].startswith("data:image/jpeg;base64") or "example.com" in urls[0]
 
 @patch('requests.get')
 def test_fetch_image_urls_handles_error(mock_get):

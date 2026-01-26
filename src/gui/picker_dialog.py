@@ -74,9 +74,6 @@ class ThumbnailWorker(QRunnable):
         self.label = label
         self.url = url
         self.signals = WorkerSignals()
-        self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        }
 
     @pyqtSlot()
     def run(self):
@@ -87,10 +84,27 @@ class ThumbnailWorker(QRunnable):
                 image_data = base64.b64decode(data)
                 content_type = header.split(";")[0].split(":")[1]
             else:
-                response = requests.get(self.url, headers=self.headers, timeout=5)
+                # Build headers with Referer to bypass hotlink protection
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+                    "Accept-Language": "en-US,en;q=0.9",
+                }
+                # Add Referer based on URL domain
+                from urllib.parse import urlparse
+                parsed = urlparse(self.url)
+                headers["Referer"] = f"{parsed.scheme}://{parsed.netloc}/"
+                
+                response = requests.get(self.url, headers=headers, timeout=8, allow_redirects=True)
                 response.raise_for_status()
                 image_data = response.content
                 content_type = response.headers.get('Content-Type', 'unknown')
+                
+                # Early check: if Content-Type is clearly not an image, skip
+                if content_type and 'text/html' in content_type.lower():
+                    self.signals.finished.emit(self.label, b"", "text/html", self.url)
+                    return
+                    
             self.signals.finished.emit(self.label, image_data, content_type, self.url)
         except Exception:
             self.signals.finished.emit(self.label, b"", "error", self.url)
@@ -517,12 +531,21 @@ class PickerDialog(QDialog):
         if sip.isdeleted(label):
             return
         if not image_data:
-            label.setText("Error")
+            # Show a less alarming message for common failures
+            label.setText("...")
+            label.setToolTip(f"Failed to load: {url}")
             return
             
         # Basic check to skip non-image content that returned 200 OK
-        if 'text/html' in content_type.lower() or image_data.startswith(b'<!DOCTYPE') or image_data.startswith(b'<html'):
-            label.setText("Invalid (HTML)")
+        if content_type and 'text/html' in content_type.lower():
+            label.setText("...")
+            label.setToolTip(f"Server returned HTML instead of image")
+            return
+            
+        # Additional check on raw bytes for HTML that might have wrong Content-Type
+        if image_data.startswith(b'<!DOCTYPE') or image_data.startswith(b'<html') or image_data.startswith(b'<HTML'):
+            label.setText("...")
+            label.setToolTip(f"Server returned HTML instead of image")
             return
 
         pixmap = QPixmap()
@@ -545,10 +568,12 @@ class PickerDialog(QDialog):
                 if not pixmap.isNull():
                     label.setPixmap(pixmap.scaledToWidth(150, Qt.TransformationMode.SmoothTransformation))
                     return
-            except Exception as e:
-                print(f"PIL fallback failed for {content_type}: {e}")
+            except Exception:
+                pass
             
-            label.setText(f"Invalid\n({content_type.split(';')[0]})")
+            # Final fallback - show placeholder
+            label.setText("...")
+            label.setToolTip(f"Unsupported format: {content_type}")
 
     def on_revert(self):
         if not self.history:
