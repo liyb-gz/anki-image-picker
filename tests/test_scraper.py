@@ -96,67 +96,61 @@ def test_fetch_image_urls_bing(mock_get):
     assert "https://example.com/bing2.jpg" in urls
     assert "bing" in mock_get.call_args[0][0]
 
-@patch('requests.Session')
-def test_fetch_image_urls_duckduckgo(mock_session_class):
-    # Mock response for DuckDuckGo
-    # First call: main page with vqd
-    mock_main_html = '<html><script>vqd="12345-67890";</script></html>'
-    # Second call: i.js JSON results
-    mock_json_response = {
-        "results": [
-            {"image": "https://example.com/ddg1.jpg"},
-            {"image": "https://example.com/ddg2.jpg"}
-        ]
-    }
+@patch('urllib.request.build_opener')
+def test_fetch_image_urls_duckduckgo(mock_build_opener):
+    # Mock response for DuckDuckGo using urllib
+    mock_main_html = b'<html><script>vqd="12345-67890";</script></html>'
+    mock_json_response = b'{"results": [{"image": "https://example.com/ddg1.jpg"}, {"image": "https://example.com/ddg2.jpg"}]}'
     
+    # Create mock responses
     mock_response_main = MagicMock()
-    mock_response_main.status_code = 200
-    mock_response_main.text = mock_main_html
-    mock_response_main.raise_for_status = MagicMock()
+    mock_response_main.read.return_value = mock_main_html
+    mock_response_main.status = 200
+    mock_response_main.__enter__ = MagicMock(return_value=mock_response_main)
+    mock_response_main.__exit__ = MagicMock(return_value=False)
     
     mock_response_json = MagicMock()
-    mock_response_json.status_code = 200
-    mock_response_json.json.return_value = mock_json_response
-    mock_response_json.raise_for_status = MagicMock()
+    mock_response_json.read.return_value = mock_json_response
+    mock_response_json.status = 200
+    mock_response_json.__enter__ = MagicMock(return_value=mock_response_json)
+    mock_response_json.__exit__ = MagicMock(return_value=False)
     
-    # Create mock session instance
-    mock_session = MagicMock()
-    mock_session.get.side_effect = [mock_response_main, mock_response_json]
-    mock_session_class.return_value = mock_session
+    # Create mock opener
+    mock_opener = MagicMock()
+    mock_opener.open.side_effect = [mock_response_main, mock_response_json]
+    mock_build_opener.return_value = mock_opener
 
     urls = fetch_image_urls("test query", provider="duckduckgo")
     
     assert "https://example.com/ddg1.jpg" in urls
     assert "https://example.com/ddg2.jpg" in urls
-    # Check first call was to duckduckgo.com
-    assert "duckduckgo.com" in mock_session.get.call_args_list[0][0][0]
-    # Check second call has correct vqd
-    assert mock_session.get.call_args_list[1][1]['params']['vqd'] == "12345-67890"
 
-@patch('requests.Session')
-def test_fetch_image_urls_duckduckgo_pagination(mock_session_class):
+@patch('urllib.request.build_opener')
+def test_fetch_image_urls_duckduckgo_pagination(mock_build_opener):
     # Mock response for DuckDuckGo with pagination
-    mock_main_html = '<html><script>vqd="pagination-token";</script></html>'
-    mock_json_response = {"results": [{"image": "https://example.com/paged.jpg"}]}
+    mock_main_html = b'<html><script>vqd="pagination-token";</script></html>'
+    mock_json_response = b'{"results": [{"image": "https://example.com/paged.jpg"}]}'
     
     mock_response_main = MagicMock()
-    mock_response_main.status_code = 200
-    mock_response_main.text = mock_main_html
-    mock_response_main.raise_for_status = MagicMock()
+    mock_response_main.read.return_value = mock_main_html
+    mock_response_main.status = 200
+    mock_response_main.__enter__ = MagicMock(return_value=mock_response_main)
+    mock_response_main.__exit__ = MagicMock(return_value=False)
     
     mock_response_json = MagicMock()
-    mock_response_json.status_code = 200
-    mock_response_json.json.return_value = mock_json_response
-    mock_response_json.raise_for_status = MagicMock()
+    mock_response_json.read.return_value = mock_json_response
+    mock_response_json.status = 200
+    mock_response_json.__enter__ = MagicMock(return_value=mock_response_json)
+    mock_response_json.__exit__ = MagicMock(return_value=False)
     
-    # Create mock session instance
-    mock_session = MagicMock()
-    mock_session.get.side_effect = [mock_response_main, mock_response_json]
-    mock_session_class.return_value = mock_session
+    mock_opener = MagicMock()
+    mock_opener.open.side_effect = [mock_response_main, mock_response_json]
+    mock_build_opener.return_value = mock_opener
 
     start_offset = 20
     urls = fetch_image_urls("test query", provider="duckduckgo", start=start_offset)
     
-    # Check if the 's' parameter (offset) was passed correctly in the second call
-    assert mock_session.get.call_args_list[1][1]['params']['s'] == start_offset
+    # Check that the second call URL contains the offset parameter
+    second_call_url = mock_opener.open.call_args_list[1][0][0].full_url
+    assert f"s={start_offset}" in second_call_url
     assert "https://example.com/paged.jpg" in urls

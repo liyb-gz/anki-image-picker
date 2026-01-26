@@ -123,8 +123,6 @@ def fetch_image_urls(query, limit=8, start=0, provider="google"):
     """
     Fetches image URLs from specified provider based on a search query.
     """
-    logger.debug(f"fetch_image_urls called: query='{query}', limit={limit}, start={start}, provider='{provider}'")
-    
     if not query or not query.strip():
         return []
 
@@ -135,10 +133,7 @@ def fetch_image_urls(query, limit=8, start=0, provider="google"):
     elif provider == "duckduckgo":
         results = _fetch_duckduckgo(query, limit, start)
     else:
-        logger.warning(f"Unknown provider: '{provider}'")
         results = []
-    
-    logger.debug(f"fetch_image_urls returning {len(results)} results for provider '{provider}'")
     return results
 
 def _fetch_google(query, limit=8, start=0):
@@ -313,71 +308,78 @@ def _fetch_bing(query, limit=8, start=0):
 def _fetch_duckduckgo(query, limit=8, start=0):
     """
     Fetches image URLs from DuckDuckGo.
-    Uses vqd token and i.js endpoint with session cookies.
-    Supports pagination via 's' parameter.
+    Uses vqd token and i.js endpoint.
+    Uses urllib for more consistent behavior across Python versions.
     """
-    # DuckDuckGo requires a session to maintain cookies and proper headers
-    session = requests.Session()
+    import urllib.request
+    import urllib.parse
+    import http.cookiejar
     
-    # Step 1: Get initial page to obtain vqd token and cookies
-    search_url = "https://duckduckgo.com/"
-    search_params = {"q": query, "iax": "images", "ia": "images"}
+    # Create a cookie jar and opener to maintain session
+    cookie_jar = http.cookiejar.CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookie_jar))
     
-    initial_headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-    }
+    user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    
+    # Step 1: Get initial page to obtain vqd token
+    search_params = urllib.parse.urlencode({"q": query, "iax": "images", "ia": "images"})
+    search_url = f"https://duckduckgo.com/?{search_params}"
     
     try:
-        response = session.get(search_url, params=search_params, headers=initial_headers, timeout=15)
-        response.raise_for_status()
-    except requests.RequestException as e:
+        req = urllib.request.Request(search_url, headers={
+            "User-Agent": user_agent,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+        })
+        with opener.open(req, timeout=15) as response:
+            html = response.read().decode('utf-8')
+    except Exception as e:
         logger.error(f"DuckDuckGo initial request failed: {e}")
         return []
     
-    vqd_match = re.search(r"vqd=['\"]?([a-zA-Z0-9-]+)['\"]?", response.text)
+    vqd_match = re.search(r"vqd=['\"]?([a-zA-Z0-9-]+)['\"]?", html)
     if not vqd_match:
         logger.error(f"Could not find vqd token for DuckDuckGo search: {query}")
         return []
     
     vqd = vqd_match.group(1)
     
-    # Step 2: Fetch images JSON with proper AJAX headers
-    json_url = "https://duckduckgo.com/i.js"
-    json_params = {
+    # Step 2: Fetch images JSON
+    json_params = urllib.parse.urlencode({
         "l": "us-en",
         "o": "json",
         "q": query,
         "vqd": vqd,
         "f": ",,,",
         "p": "1",
-        "s": start  # Offset for pagination
-    }
-    
-    api_headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json, text/javascript, */*; q=0.01",
-        "Accept-Language": "en-US,en;q=0.5",
-        "Referer": "https://duckduckgo.com/",
-        "X-Requested-With": "XMLHttpRequest",
-    }
+        "s": start
+    })
+    json_url = f"https://duckduckgo.com/i.js?{json_params}"
     
     try:
-        response = session.get(json_url, params=json_params, headers=api_headers, timeout=15)
-        response.raise_for_status()
-    except requests.RequestException as e:
+        req = urllib.request.Request(json_url, headers={
+            "User-Agent": user_agent,
+            "Accept": "application/json, text/javascript, */*; q=0.01",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Referer": "https://duckduckgo.com/",
+            "X-Requested-With": "XMLHttpRequest",
+        })
+        with opener.open(req, timeout=15) as response:
+            json_text = response.read().decode('utf-8')
+    except urllib.error.HTTPError as e:
+        logger.error(f"DuckDuckGo API request failed: {e}")
+        return []
+    except Exception as e:
         logger.error(f"DuckDuckGo API request failed: {e}")
         return []
     
     try:
-        data = response.json()
+        data = json.loads(json_text)
         results = []
         for item in data.get("results", []):
             img_url = item.get("image")
             if img_url and _is_image_url(img_url):
                 results.append(img_url)
-                
         return results[:limit]
     except (json.JSONDecodeError, AttributeError) as e:
         logger.error(f"Error parsing DuckDuckGo JSON response: {e}")
