@@ -75,13 +75,53 @@ def test_fetch_image_urls_empty_query():
     assert fetch_image_urls(None) == []
 
 @patch('requests.get')
-def test_fetch_image_urls_custom_limit(mock_get):
-    mock_html = '<html><body><img src="https://example.com/1.jpg"><img src="https://example.com/2.jpg"></body></html>'
+def test_fetch_image_urls_bing(mock_get):
+    # Mock HTML response from Bing
+    mock_html = """
+    <html>
+        <body>
+            <a class="iusc" m='{"murl":"https://example.com/bing1.jpg"}'></a>
+            <a class="iusc" m='{"murl":"https://example.com/bing2.jpg"}'></a>
+        </body>
+    </html>
+    """
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.text = mock_html
     mock_get.return_value = mock_response
+
+    urls = fetch_image_urls("test query", provider="bing")
     
-    urls = fetch_image_urls("test", limit=1)
-    assert len(urls) == 1
-    assert urls[0] == "https://example.com/1.jpg"
+    assert "https://example.com/bing1.jpg" in urls
+    assert "https://example.com/bing2.jpg" in urls
+    assert "bing" in mock_get.call_args[0][0]
+
+@patch('requests.get')
+def test_fetch_image_urls_duckduckgo(mock_get):
+    # Mock response for DuckDuckGo
+    # First call: main page with vqd
+    mock_main_html = '<html><script>vqd="12345-67890";</script></html>'
+    # Second call: i.js JSON results
+    mock_json_response = {
+        "results": [
+            {"image": "https://example.com/ddg1.jpg"},
+            {"image": "https://example.com/ddg2.jpg"}
+        ]
+    }
+    
+    mock_response_main = MagicMock()
+    mock_response_main.status_code = 200
+    mock_response_main.text = mock_main_html
+    
+    mock_response_json = MagicMock()
+    mock_response_json.status_code = 200
+    mock_response_json.json.return_value = mock_json_response
+    
+    mock_get.side_effect = [mock_response_main, mock_response_json]
+
+    urls = fetch_image_urls("test query", provider="duckduckgo")
+    
+    assert "https://example.com/ddg1.jpg" in urls
+    assert "https://example.com/ddg2.jpg" in urls
+    assert "duckduckgo.com" in mock_get.call_args_list[0][0][0]
+    assert mock_get.call_args_list[1].kwargs['params']['vqd'] == "12345-67890"

@@ -5,15 +5,26 @@ import codecs
 import time
 from bs4 import BeautifulSoup
 
-def fetch_image_urls(query, limit=8, start=0):
+def fetch_image_urls(query, limit=8, start=0, provider="google"):
     """
-    Fetches image URLs from Google Images based on a search query.
-    Prioritizes high-resolution images found in metadata.
+    Fetches image URLs from specified provider based on a search query.
     """
     if not query or not query.strip():
         return []
 
-    # Use parameters from the reference addon for better stability and results
+    if provider == "google":
+        return _fetch_google(query, limit, start)
+    elif provider == "bing":
+        return _fetch_bing(query, limit, start)
+    elif provider == "duckduckgo":
+        return _fetch_duckduckgo(query, limit)
+    else:
+        return []
+
+def _fetch_google(query, limit=8, start=0):
+    """
+    Fetches image URLs from Google Images.
+    """
     params = {
         "q": query,
         "tbm": "isch",
@@ -22,7 +33,6 @@ def fetch_image_urls(query, limit=8, start=0):
         "oe": "utf8",
         "ucbcb": "1",
         "safe": "active",
-        # tbs parameters: itp:photo (images), ic:color (colored), iar:w (wide/standard)
         "tbs": "itp:photo,ic:color"
     }
     
@@ -30,7 +40,6 @@ def fetch_image_urls(query, limit=8, start=0):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
-    # Adding CONSENT cookie to bypass common Google redirect issues
     cookies = {"CONSENT": "YES+"}
     
     max_retries = 3
@@ -40,7 +49,6 @@ def fetch_image_urls(query, limit=8, start=0):
         try:
             response = requests.get("https://www.google.com/search", params=params, headers=headers, cookies=cookies, timeout=15)
             
-            # Handle rate limiting (429) specifically as seen in reference addon
             if response.status_code == 429:
                 if attempt < max_retries - 1:
                     time.sleep(retry_delay * (attempt + 1))
@@ -53,8 +61,7 @@ def fetch_image_urls(query, limit=8, start=0):
             html = response.text
             results = []
             
-            # 1. Primary Strategy: Extract from AF_initDataCallback (Modern Google Image structure)
-            # Use a more robust regex that doesn't stop at nested brackets
+            # 1. Primary Strategy: Extract from AF_initDataCallback
             json_patterns = [
                 r"AF_initDataCallback\({[^<]*?data:[^<]*?(\[.+?\])\s*\}\);",
                 r"var m=(\{\"?[^\"}]+?\"?:\[.+?\]\});"
@@ -64,16 +71,11 @@ def fetch_image_urls(query, limit=8, start=0):
                 matches = re.findall(pattern, html)
                 for match in matches:
                     try:
-                        # Some versions might need the match to be slightly cleaned
                         data = json.loads(match)
-                        
-                        # Use specific paths from the reference addon for known Google structures
-                        # These are often more reliable than generic recursive search
                         extracted_any = False
                         
                         # Path 1: data[31][0][12][2]
                         try:
-                            # The structure is deeply nested
                             for d in data[31][0][12][2]:
                                 try:
                                     url = d[1][3][0]
@@ -94,7 +96,7 @@ def fetch_image_urls(query, limit=8, start=0):
                                 except: pass
                         except: pass
 
-                        # Fallback to recursive extraction if specific paths failed or for other structures
+                        # Fallback to recursive extraction
                         def extract_urls(obj):
                             if isinstance(obj, str):
                                 if obj.startswith("http") and any(ext in obj.lower() for ext in [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"]):
@@ -113,7 +115,7 @@ def fetch_image_urls(query, limit=8, start=0):
                     except json.JSONDecodeError:
                         continue
 
-            # 2. Secondary Strategy: Regex for [original_url, height, width] metadata
+            # 2. Secondary Strategy: Regex for metadata
             meta_patterns = [
                 r'\["(https?://[^"]+)",\s*([1-9][0-9]{2,}),\s*([1-9][0-9]{2,})\]'
             ]
@@ -128,7 +130,7 @@ def fetch_image_urls(query, limit=8, start=0):
                         if img_url not in results:
                             results.append(img_url)
 
-            # 3. Fallback: Direct image links in the page
+            # 3. Fallback: Direct image links
             fallback_patterns = [
                 r'["\'](https?://[^"\'\s]+\.(?:jpg|jpeg|png|gif|bmp|webp))["\']',
             ]
@@ -142,7 +144,7 @@ def fetch_image_urls(query, limit=8, start=0):
                     if "gstatic.com" not in found_url and found_url not in results:
                         results.append(found_url)
 
-            # 4. Last Resort: Thumbnails from <img> tags
+            # 4. Last Resort: Thumbnails
             soup = BeautifulSoup(html, 'html.parser')
             for img in soup.find_all("img"):
                 src = img.get("src")
@@ -152,7 +154,7 @@ def fetch_image_urls(query, limit=8, start=0):
                     if src not in results:
                         results.append(src)
                         
-            # Remove duplicates while preserving order
+            # Remove duplicates
             unique_results = []
             for url in results:
                 if url not in unique_results:
@@ -162,9 +164,95 @@ def fetch_image_urls(query, limit=8, start=0):
 
         except requests.RequestException as e:
             if attempt < max_retries - 1:
-                time.sleep(1) # Short sleep before retry for non-429 errors
+                time.sleep(1)
                 continue
             print(f"Error fetching images for '{query}': {e}")
             return []
     
     return []
+
+def _fetch_bing(query, limit=8, start=0):
+    """
+    Fetches image URLs from Bing Images.
+    Extracts 'murl' from the 'm' attribute of '<a>' tags with class 'iusc'.
+    """
+    url = "https://www.bing.com/images/search"
+    params = {
+        "q": query,
+        "first": start,
+        "count": limit,
+        "adlt": "strict"
+    }
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    
+    try:
+        response = requests.get(url, params=params, headers=headers, timeout=15)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        results = []
+        
+        for a in soup.find_all("a", class_="iusc"):
+            m_attr = a.get("m")
+            if m_attr:
+                try:
+                    m_data = json.loads(m_attr)
+                    img_url = m_data.get("murl")
+                    if img_url:
+                        results.append(img_url)
+                except json.JSONDecodeError:
+                    continue
+        
+        return results[:limit]
+    except requests.RequestException as e:
+        print(f"Error fetching Bing images for '{query}': {e}")
+        return []
+
+def _fetch_duckduckgo(query, limit=8):
+    """
+    Fetches image URLs from DuckDuckGo.
+    Uses vqd token and i.js endpoint.
+    """
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    
+    try:
+        # Step 1: Get vqd token
+        search_url = "https://duckduckgo.com/"
+        search_params = {"q": query, "iax": "images", "ia": "images"}
+        response = requests.get(search_url, params=search_params, headers=headers, timeout=15)
+        response.raise_for_status()
+        
+        vqd_match = re.search(r"vqd=['\"]?([0-9-]+)['\"]?", response.text)
+        if not vqd_match:
+            return []
+        
+        vqd = vqd_match.group(1)
+        
+        # Step 2: Fetch images JSON
+        json_url = "https://duckduckgo.com/i.js"
+        json_params = {
+            "l": "us-en",
+            "o": "json",
+            "q": query,
+            "vqd": vqd,
+            "f": ",,,"
+        }
+        
+        response = requests.get(json_url, params=json_params, headers=headers, timeout=15)
+        response.raise_for_status()
+        
+        data = response.json()
+        results = []
+        for item in data.get("results", []):
+            img_url = item.get("image")
+            if img_url:
+                results.append(img_url)
+                
+        return results[:limit]
+    except requests.RequestException as e:
+        print(f"Error fetching DDG images for '{query}': {e}")
+        return []
