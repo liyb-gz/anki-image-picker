@@ -47,6 +47,18 @@ def _make_request(url, params=None, cookies=None, max_retries=3, timeout=15):
             return None
     return None
 
+def _is_image_url(url):
+    """Checks if a URL likely points to an image based on its extension."""
+    if not url or not isinstance(url, str):
+        return False
+    # Skip data URLs
+    if url.startswith("data:image"):
+        return True
+    
+    image_extensions = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"]
+    url_lower = url.lower().split("?")[0] # Check before query params
+    return any(url_lower.endswith(ext) for ext in image_extensions) or any(ext in url_lower for ext in image_extensions)
+
 def fetch_image_urls(query, limit=8, start=0, provider="google"):
     """
     Fetches image URLs from specified provider based on a search query.
@@ -105,7 +117,7 @@ def _fetch_google(query, limit=8, start=0):
                     for d in data[31][0][12][2]:
                         try:
                             url = d[1][3][0]
-                            if url.startswith("http"):
+                            if url.startswith("http") and _is_image_url(url):
                                 results.append(url)
                                 extracted_any = True
                         except: pass
@@ -116,7 +128,7 @@ def _fetch_google(query, limit=8, start=0):
                     for d in data[56][1][0][0][1][0]:
                         try:
                             url = d[0][0]["444383007"][1][3][0]
-                            if url.startswith("http"):
+                            if url.startswith("http") and _is_image_url(url):
                                 results.append(url)
                                 extracted_any = True
                         except: pass
@@ -125,7 +137,7 @@ def _fetch_google(query, limit=8, start=0):
                 # Fallback to recursive extraction
                 def extract_urls(obj):
                     if isinstance(obj, str):
-                        if obj.startswith("http") and any(ext in obj.lower() for ext in [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"]):
+                        if obj.startswith("http") and _is_image_url(obj):
                             if "gstatic.com" not in obj:
                                 results.append(obj)
                     elif isinstance(obj, list):
@@ -152,7 +164,7 @@ def _fetch_google(query, limit=8, start=0):
                 img_url = codecs.decode(img_url, 'unicode_escape')
             except:
                 pass
-            if "gstatic.com" not in img_url:
+            if "gstatic.com" not in img_url and _is_image_url(img_url):
                 if img_url not in results:
                     results.append(img_url)
 
@@ -168,6 +180,7 @@ def _fetch_google(query, limit=8, start=0):
             except:
                 pass
             if "gstatic.com" not in found_url and found_url not in results:
+                # Regex already filters for extensions
                 results.append(found_url)
 
     # 4. Last Resort: Thumbnails
@@ -178,7 +191,8 @@ def _fetch_google(query, limit=8, start=0):
             continue
         if src.startswith("http") or src.startswith("data:image"):
             if src not in results:
-                results.append(src)
+                if src.startswith("data:image") or _is_image_url(src):
+                    results.append(src)
                 
     # Remove duplicates
     unique_results = []
@@ -214,7 +228,7 @@ def _fetch_bing(query, limit=8, start=0):
             try:
                 m_data = json.loads(m_attr)
                 img_url = m_data.get("murl")
-                if img_url:
+                if img_url and _is_image_url(img_url):
                     results.append(img_url)
             except json.JSONDecodeError:
                 continue
@@ -262,7 +276,7 @@ def _fetch_duckduckgo(query, limit=8, start=0):
         results = []
         for item in data.get("results", []):
             img_url = item.get("image")
-            if img_url:
+            if img_url and _is_image_url(img_url):
                 results.append(img_url)
                 
         return results[:limit]

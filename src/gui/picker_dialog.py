@@ -66,7 +66,7 @@ class ImageDownloader(QThread):
 
 
 class WorkerSignals(QObject):
-    finished = pyqtSignal(object, bytes, str)
+    finished = pyqtSignal(object, bytes, str, str)
 
 class ThumbnailWorker(QRunnable):
     def __init__(self, label, url):
@@ -91,9 +91,9 @@ class ThumbnailWorker(QRunnable):
                 response.raise_for_status()
                 image_data = response.content
                 content_type = response.headers.get('Content-Type', 'unknown')
-            self.signals.finished.emit(self.label, image_data, content_type)
+            self.signals.finished.emit(self.label, image_data, content_type, self.url)
         except Exception:
-            self.signals.finished.emit(self.label, b"", "error")
+            self.signals.finished.emit(self.label, b"", "error", self.url)
 
 class PickerDialog(QDialog):
     def __init__(self, notes, preferred_provider="google", parent=None):
@@ -513,7 +513,7 @@ class PickerDialog(QDialog):
         worker.signals.finished.connect(self.on_thumbnail_loaded)
         self.threadpool.start(worker)
 
-    def on_thumbnail_loaded(self, label, image_data, content_type):
+    def on_thumbnail_loaded(self, label, image_data, content_type, url):
         if sip.isdeleted(label):
             return
         if not image_data:
