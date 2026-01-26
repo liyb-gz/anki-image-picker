@@ -63,7 +63,7 @@ class ImageDownloader(QThread):
 
 
 class WorkerSignals(QObject):
-    finished = pyqtSignal(object, bytes)
+    finished = pyqtSignal(object, bytes, str)
 
 class ThumbnailWorker(QRunnable):
     def __init__(self, label, url):
@@ -82,13 +82,15 @@ class ThumbnailWorker(QRunnable):
                 import base64
                 header, data = self.url.split(",", 1)
                 image_data = base64.b64decode(data)
+                content_type = header.split(";")[0].split(":")[1]
             else:
                 response = requests.get(self.url, headers=self.headers, timeout=5)
                 response.raise_for_status()
                 image_data = response.content
-            self.signals.finished.emit(self.label, image_data)
+                content_type = response.headers.get('Content-Type', 'unknown')
+            self.signals.finished.emit(self.label, image_data, content_type)
         except Exception:
-            self.signals.finished.emit(self.label, b"")
+            self.signals.finished.emit(self.label, b"", "error")
 
 class PickerDialog(QDialog):
     def __init__(self, notes, parent=None):
@@ -466,18 +468,42 @@ class PickerDialog(QDialog):
         worker.signals.finished.connect(self.on_thumbnail_loaded)
         self.threadpool.start(worker)
 
-    def on_thumbnail_loaded(self, label, image_data):
+    def on_thumbnail_loaded(self, label, image_data, content_type):
         if sip.isdeleted(label):
             return
         if not image_data:
             label.setText("Error")
             return
+            
+        # Basic check to skip non-image content that returned 200 OK
+        if 'text/html' in content_type.lower() or image_data.startswith(b'<!DOCTYPE') or image_data.startswith(b'<html'):
+            label.setText("Invalid (HTML)")
+            return
+
         pixmap = QPixmap()
         pixmap.loadFromData(image_data)
         if not pixmap.isNull():
             label.setPixmap(pixmap.scaledToWidth(150, Qt.TransformationMode.SmoothTransformation))
         else:
-            label.setText("Invalid Image")
+            # If QPixmap failed, try PIL as a fallback (it's better at some formats like WebP or CMYK JPEGs)
+            try:
+                from PIL import Image
+                import io
+                image = Image.open(io.BytesIO(image_data))
+                # Convert to RGBA and then to QImage
+                if image.mode != "RGBA":
+                    image = image.convert("RGBA")
+                data = image.tobytes("raw", "RGBA")
+                from PyQt6.QtGui import QImage
+                qimage = QImage(data, image.size[0], image.size[1], QImage.Format.Format_RGBA8888)
+                pixmap = QPixmap.fromImage(qimage)
+                if not pixmap.isNull():
+                    label.setPixmap(pixmap.scaledToWidth(150, Qt.TransformationMode.SmoothTransformation))
+                    return
+            except Exception as e:
+                print(f"PIL fallback failed for {content_type}: {e}")
+            
+            label.setText(f"Invalid\n({content_type.split(';')[0]})")
 
     def on_revert(self):
         if not self.history:
