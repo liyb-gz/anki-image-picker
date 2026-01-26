@@ -25,16 +25,17 @@ class ImageFetcher(QThread):
     finished = pyqtSignal(list, int)
     error = pyqtSignal(str, int)
 
-    def __init__(self, query, start_index=0, provider="google", request_id=0):
+    def __init__(self, query, limit=8, start_index=0, provider="google", request_id=0):
         super().__init__()
         self.query = query
+        self.limit = limit
         self.start_index = start_index
         self.provider = provider
         self.request_id = request_id
 
     def run(self):
         try:
-            urls = fetch_image_urls(self.query, start=self.start_index, provider=self.provider)
+            urls = fetch_image_urls(self.query, limit=self.limit, start=self.start_index, provider=self.provider)
             self.finished.emit(urls, self.request_id)
         except Exception as e:
             self.error.emit(str(e), self.request_id)
@@ -343,8 +344,13 @@ class PickerDialog(QDialog):
         self._fetch_images()
 
     def on_load_more(self):
-        # Using a larger jump to ensure we get past the first batch of results
-        self.current_offset += 20
+        # Jump by the number of results we currently have to get the next page
+        # Using the actual grid count ensures we don't skip results
+        count = self.grid_layout.count()
+        if count > 0:
+            self.current_offset = count
+        else:
+            self.current_offset += 12
         self._fetch_images()
 
     def _fetch_images(self):
@@ -370,11 +376,11 @@ class PickerDialog(QDialog):
 
         if mw:
             mw.taskman.run_in_background(
-                lambda: fetch_image_urls(full_query, start=self.current_offset, provider=provider),
+                lambda: fetch_image_urls(full_query, limit=12, start=self.current_offset, provider=provider),
                 lambda res: self.on_images_fetched(res, request_id)
             )
         else:
-            fetcher = ImageFetcher(full_query, start_index=self.current_offset, provider=provider, request_id=request_id)
+            fetcher = ImageFetcher(full_query, limit=12, start_index=self.current_offset, provider=provider, request_id=request_id)
             self._running_threads.append(fetcher)
             fetcher.finished.connect(self.on_images_fetched)
             fetcher.error.connect(self.on_fetch_error)

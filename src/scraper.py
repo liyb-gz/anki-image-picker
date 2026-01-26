@@ -147,6 +147,15 @@ def _fetch_google(query, limit=8, start=0):
     """
     Fetches image URLs from Google Images.
     """
+    # Dynamically build tbs based on query
+    # If query contains illustration-related terms, don't force itp:photo
+    illustration_terms = ["illustration", "drawing", "clipart", "vector", "sketch", "painting"]
+    is_illustration = any(term in query.lower() for term in illustration_terms)
+    
+    tbs = "ic:color"
+    if not is_illustration:
+        tbs += ",itp:photo"
+    
     params = {
         "q": query,
         "tbm": "isch",
@@ -155,7 +164,7 @@ def _fetch_google(query, limit=8, start=0):
         "oe": "utf8",
         "ucbcb": "1",
         "safe": "active",
-        "tbs": "itp:photo,ic:color"
+        "tbs": tbs
     }
     
     cookies = {"CONSENT": "YES+"}
