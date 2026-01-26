@@ -55,7 +55,8 @@ def test_config_manager_global_defaults_fallback():
     manager = ConfigManager()
     defaults = manager.get_global_defaults()
     
-    assert defaults["default_provider"] == "google" # Default fallback
+    assert defaults["preferred_provider"] == "google" # Default fallback
+    assert "default_provider" not in defaults
 
 def test_config_manager_note_type_provider():
     import aqt
