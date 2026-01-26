@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, 
-    QPushButton, QLabel, QScrollArea, QWidget, QGridLayout, QFrame
+    QPushButton, QLabel, QScrollArea, QWidget, QGridLayout, QFrame,
+    QComboBox
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QThread, QThreadPool, QRunnable, pyqtSlot, QObject
 from PyQt6.QtGui import QPixmap, QShortcut, QKeySequence
@@ -21,20 +22,22 @@ from .widgets import ClickableImageLabel
 from ..anki_utils import save_image_to_note, get_field_content, restore_field_content
 
 class ImageFetcher(QThread):
-    finished = pyqtSignal(list)
-    error = pyqtSignal(str)
+    finished = pyqtSignal(list, int)
+    error = pyqtSignal(str, int)
 
-    def __init__(self, query, start_index=0):
+    def __init__(self, query, start_index=0, provider="google", request_id=0):
         super().__init__()
         self.query = query
         self.start_index = start_index
+        self.provider = provider
+        self.request_id = request_id
 
     def run(self):
         try:
-            urls = fetch_image_urls(self.query, start=self.start_index)
-            self.finished.emit(urls)
+            urls = fetch_image_urls(self.query, start=self.start_index, provider=self.provider)
+            self.finished.emit(urls, self.request_id)
         except Exception as e:
-            self.error.emit(str(e))
+            self.error.emit(str(e), self.request_id)
 
 class ImageDownloader(QThread):
     finished = pyqtSignal(bytes)
@@ -93,9 +96,10 @@ class ThumbnailWorker(QRunnable):
             self.signals.finished.emit(self.label, b"", "error")
 
 class PickerDialog(QDialog):
-    def __init__(self, notes, parent=None):
+    def __init__(self, notes, preferred_provider="google", parent=None):
         super().__init__(parent)
         self.notes = notes
+        self.preferred_provider = preferred_provider
         self.current_index = 0
         self.current_offset = 0
         self.seen_urls = set()
@@ -105,6 +109,7 @@ class PickerDialog(QDialog):
         self.current_note = None
         self.history = []
         self._running_threads = []
+        self._current_request_id = 0
         self.setWindowTitle("Anki Image Picker")
         self.resize(1100, 750)
         self.init_ui()
@@ -123,11 +128,17 @@ class PickerDialog(QDialog):
         
         self.search_button = QPushButton("Search")
         self.search_button.clicked.connect(self.start_fetching)
+        
+        self.provider_combo = QComboBox()
+        self.provider_combo.addItems(["google", "bing", "duckduckgo"])
+        self.provider_combo.currentTextChanged.connect(self.on_provider_changed)
+        
         self.progress_label = QLabel()
         self.status_label = QLabel()
         
         top_layout.addWidget(self.search_input)
         top_layout.addWidget(self.suffix_input)
+        top_layout.addWidget(self.provider_combo)
         top_layout.addWidget(self.search_button)
         top_layout.addWidget(self.progress_label)
         top_layout.addWidget(self.status_label)
@@ -231,6 +242,11 @@ class PickerDialog(QDialog):
         config = note_data.get("config", {})
         self.suffix_input.setText(config.get("search_suffix", ""))
         
+        provider = config.get("preferred_provider", self.preferred_provider)
+        self.provider_combo.blockSignals(True)
+        self.provider_combo.setCurrentText(provider)
+        self.provider_combo.blockSignals(False)
+        
         self.progress_label.setText(f"Card {self.current_index + 1} of {len(self.notes)}")
         
         self.back_button.setEnabled(len(self.history) > 0)
@@ -297,7 +313,16 @@ class PickerDialog(QDialog):
             self.search_input.setText(text)
             self.start_fetching()
 
+    def on_provider_changed(self, text):
+        self.preferred_provider = text
+        # Update shared config if it exists
+        if self.notes and self.current_index < len(self.notes):
+            config = self.notes[self.current_index].get("config", {})
+            config["preferred_provider"] = text
+        self.start_fetching()
+
     def start_fetching(self):
+        self._current_request_id += 1
         self.current_offset = 0
         self.seen_urls = set()
         self.clear_grid()
@@ -312,6 +337,10 @@ class PickerDialog(QDialog):
         query = self.search_input.text()
         suffix = self.suffix_input.text().strip()
         
+        if self.notes and self.current_index < len(self.notes):
+            config = self.notes[self.current_index].get("config", {})
+            config["search_suffix"] = suffix
+
         if not query.strip():
             return
 
@@ -319,28 +348,36 @@ class PickerDialog(QDialog):
         if suffix and suffix.lower() not in full_query.lower():
             full_query += f" {suffix}"
 
+        provider = self.provider_combo.currentText()
+        request_id = self._current_request_id
+
         self.search_input.setStyleSheet("")
         self.status_label.setText("Searching...")
 
         if mw:
             mw.taskman.run_in_background(
-                lambda: fetch_image_urls(full_query, start=self.current_offset),
-                self.on_images_fetched
+                lambda: fetch_image_urls(full_query, start=self.current_offset, provider=provider),
+                lambda res: self.on_images_fetched(res, request_id)
             )
         else:
-            fetcher = ImageFetcher(full_query, start_index=self.current_offset)
+            fetcher = ImageFetcher(full_query, start_index=self.current_offset, provider=provider, request_id=request_id)
             self._running_threads.append(fetcher)
-            fetcher.finished.connect(lambda urls: self.on_images_fetched(urls))
+            fetcher.finished.connect(self.on_images_fetched)
             fetcher.error.connect(self.on_fetch_error)
             fetcher.finished.connect(lambda: self._cleanup_thread(fetcher))
             fetcher.start()
 
-    def on_images_fetched(self, result):
+    def on_images_fetched(self, result, request_id=None):
+        # Handle both QThread signal (where request_id is passed as 2nd arg)
+        # and Anki taskman callback (where we pass it via lambda)
+        if request_id is not None and request_id != self._current_request_id:
+            return
+
         if mw:
             try:
                 urls = result.result()
             except Exception as e:
-                self.on_fetch_error(str(e))
+                self.on_fetch_error(str(e), request_id)
                 return
         else:
             urls = result
@@ -380,15 +417,16 @@ class PickerDialog(QDialog):
 
     def on_image_selected(self, url):
         self.status_label.setText("Saving...")
+        note_id = self.notes[self.current_index]["id"]
         if mw:
             mw.taskman.run_in_background(
                 lambda: self._download_image(url),
-                self.on_image_downloaded
+                lambda res: self.on_image_downloaded(res, note_id)
             )
         else:
             downloader = ImageDownloader(url)
             self._running_threads.append(downloader)
-            downloader.finished.connect(self.on_image_downloaded)
+            downloader.finished.connect(lambda data: self.on_image_downloaded(data, note_id))
             downloader.error.connect(self.on_download_error)
             downloader.finished.connect(lambda: self._cleanup_thread(downloader))
             downloader.start()
@@ -406,7 +444,12 @@ class PickerDialog(QDialog):
             response.raise_for_status()
             return response.content
 
-    def on_image_downloaded(self, result):
+    def on_image_downloaded(self, result, note_id):
+        # Ensure we are still on the same note that triggered the download
+        if not self.notes or self.notes[self.current_index]["id"] != note_id:
+            print("Ignoring download result: note changed")
+            return
+
         if mw:
             try:
                 image_data = result.result()
@@ -454,7 +497,9 @@ class PickerDialog(QDialog):
         print(f"Download/Save error: {error_msg}")
         self.status_label.setText("Error saving image")
 
-    def on_fetch_error(self, error_msg):
+    def on_fetch_error(self, error_msg, request_id=None):
+        if request_id is not None and request_id != self._current_request_id:
+            return
         print(f"Fetch error: {error_msg}")
         self.status_label.setText("Search failed")
         self.search_input.setStyleSheet("border: 2px solid red;")

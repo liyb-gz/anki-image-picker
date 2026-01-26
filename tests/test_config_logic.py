@@ -22,6 +22,7 @@ def test_config_dialog_data(qapp):
     assert config["max_width"] == 320
     assert config["max_height"] == 320
     assert config["search_suffix"] == ""
+    assert config["preferred_provider"] == "google"
     assert config["mode"] == "replace"
     
     # Simulate user changes
@@ -29,6 +30,7 @@ def test_config_dialog_data(qapp):
     dialog.width_spin.setValue(500)
     dialog.height_spin.setValue(600)
     dialog.suffix_edit.setText(" anatomical")
+    dialog.provider_combo.setCurrentText("duckduckgo")
     dialog.append_radio.setChecked(True)
     
     config = dialog.get_config()
@@ -36,6 +38,7 @@ def test_config_dialog_data(qapp):
     assert config["max_width"] == 500
     assert config["max_height"] == 600
     assert config["search_suffix"] == " anatomical"
+    assert config["preferred_provider"] == "duckduckgo"
     assert config["mode"] == "append"
 
 def test_config_dialog_initial_config(qapp):
@@ -46,6 +49,7 @@ def test_config_dialog_initial_config(qapp):
         "search_suffix": " test",
         "max_width": 400,
         "max_height": 500,
+        "preferred_provider": "bing",
         "mode": "skip"
     }
     dialog = ConfigDialog(fields, initial_config=initial_config)
@@ -56,6 +60,7 @@ def test_config_dialog_initial_config(qapp):
     assert config["search_suffix"] == " test"
     assert config["max_width"] == 400
     assert config["max_height"] == 500
+    assert config["preferred_provider"] == "bing"
     assert config["mode"] == "skip"
 
 def test_config_dialog_context_fields(qapp):

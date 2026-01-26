@@ -56,7 +56,8 @@ def on_quick_image_picker(browser):
         return
         
     # 4. Open Picker Dialog
-    picker = PickerDialog(notes_data, parent=browser)
+    preferred_provider = config.get("preferred_provider", "google")
+    picker = PickerDialog(notes_data, preferred_provider=preferred_provider, parent=browser)
     picker.exec()
 
 def setup_menu(browser):

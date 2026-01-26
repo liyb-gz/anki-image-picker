@@ -2,5 +2,6 @@
     "search_suffix": "",
     "max_width": 320,
     "max_height": 320,
+    "default_provider": "google",
     "models": {}
 }

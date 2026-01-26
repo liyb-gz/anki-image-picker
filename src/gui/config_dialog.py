@@ -42,6 +42,18 @@ class ConfigDialog(QDialog):
         suffix_layout.addWidget(self.suffix_edit)
         layout.addLayout(suffix_layout)
 
+        # Preferred Provider
+        provider_layout = QHBoxLayout()
+        provider_layout.addWidget(QLabel("Preferred Provider:"))
+        self.provider_combo = QComboBox()
+        self.provider_combo.addItems(["google", "bing", "duckduckgo"])
+        
+        provider_val = self.initial_config.get("preferred_provider", "google")
+        self.provider_combo.setCurrentText(provider_val)
+        
+        provider_layout.addWidget(self.provider_combo)
+        layout.addLayout(provider_layout)
+
         # Target Field
         target_layout = QHBoxLayout()
         target_layout.addWidget(QLabel("Target Field (Where to put image):"))
@@ -165,6 +177,7 @@ class ConfigDialog(QDialog):
             "search_suffix": self.suffix_edit.text(),
             "max_width": self.width_spin.value(),
             "max_height": self.height_spin.value(),
+            "preferred_provider": self.provider_combo.currentText(),
             "mode": mode_map.get(checked_id, "replace")
         }
 
