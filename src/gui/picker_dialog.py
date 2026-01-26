@@ -43,6 +43,9 @@ class ImageDownloader(QThread):
     def __init__(self, url):
         super().__init__()
         self.url = url
+        self.headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
 
     def run(self):
         try:
@@ -51,12 +54,13 @@ class ImageDownloader(QThread):
                 header, data = self.url.split(",", 1)
                 image_data = base64.b64decode(data)
             else:
-                response = requests.get(self.url, timeout=10)
+                response = requests.get(self.url, headers=self.headers, timeout=10)
                 response.raise_for_status()
                 image_data = response.content
             self.finished.emit(image_data)
         except Exception as e:
             self.error.emit(str(e))
+
 
 class WorkerSignals(QObject):
     finished = pyqtSignal(object, bytes)
@@ -67,6 +71,9 @@ class ThumbnailWorker(QRunnable):
         self.label = label
         self.url = url
         self.signals = WorkerSignals()
+        self.headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
 
     @pyqtSlot()
     def run(self):
@@ -76,7 +83,7 @@ class ThumbnailWorker(QRunnable):
                 header, data = self.url.split(",", 1)
                 image_data = base64.b64decode(data)
             else:
-                response = requests.get(self.url, timeout=5)
+                response = requests.get(self.url, headers=self.headers, timeout=5)
                 response.raise_for_status()
                 image_data = response.content
             self.signals.finished.emit(self.label, image_data)
@@ -97,7 +104,7 @@ class PickerDialog(QDialog):
         self.history = []
         self._running_threads = []
         self.setWindowTitle("Anki Image Picker")
-        self.resize(800, 600)
+        self.resize(1100, 750)
         self.init_ui()
 
     def init_ui(self):
@@ -115,11 +122,13 @@ class PickerDialog(QDialog):
         self.search_button = QPushButton("Search")
         self.search_button.clicked.connect(self.start_fetching)
         self.progress_label = QLabel()
+        self.status_label = QLabel()
         
         top_layout.addWidget(self.search_input)
         top_layout.addWidget(self.suffix_input)
         top_layout.addWidget(self.search_button)
         top_layout.addWidget(self.progress_label)
+        top_layout.addWidget(self.status_label)
         layout.addLayout(top_layout)
 
         # Hot-swap fields row
@@ -309,7 +318,7 @@ class PickerDialog(QDialog):
             full_query += f" {suffix}"
 
         self.search_input.setStyleSheet("")
-        self.progress_label.setText("Searching...")
+        self.status_label.setText("Searching...")
 
         if mw:
             mw.taskman.run_in_background(
@@ -334,7 +343,7 @@ class PickerDialog(QDialog):
         else:
             urls = result
 
-        self.progress_label.setText("")
+        self.status_label.setText("")
         
         # Filter out already seen URLs to avoid duplicates in the grid
         new_urls = [u for u in urls if u not in self.seen_urls]
@@ -344,9 +353,9 @@ class PickerDialog(QDialog):
         if not new_urls:
             if self.current_offset == 0:
                 self.search_input.setStyleSheet("border: 2px solid red;")
-                self.progress_label.setText("No results")
+                self.status_label.setText("No results")
             else:
-                self.progress_label.setText("No more results")
+                self.status_label.setText("No more results")
             return
             
         current_count = self.grid_layout.count()
@@ -368,7 +377,7 @@ class PickerDialog(QDialog):
             self.queue_thumbnail_load(label, url)
 
     def on_image_selected(self, url):
-        self.progress_label.setText("Saving...")
+        self.status_label.setText("Saving...")
         if mw:
             mw.taskman.run_in_background(
                 lambda: self._download_image(url),
@@ -388,7 +397,10 @@ class PickerDialog(QDialog):
             header, data = url.split(",", 1)
             return base64.b64decode(data)
         else:
-            response = requests.get(url, timeout=10)
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+            response = requests.get(url, headers=headers, timeout=10)
             response.raise_for_status()
             return response.content
 
@@ -438,11 +450,11 @@ class PickerDialog(QDialog):
 
     def on_download_error(self, error_msg):
         print(f"Download/Save error: {error_msg}")
-        self.progress_label.setText("Error saving image")
+        self.status_label.setText("Error saving image")
 
     def on_fetch_error(self, error_msg):
         print(f"Fetch error: {error_msg}")
-        self.progress_label.setText("Search failed")
+        self.status_label.setText("Search failed")
         self.search_input.setStyleSheet("border: 2px solid red;")
 
     def _cleanup_thread(self, thread):
