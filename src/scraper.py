@@ -123,17 +123,23 @@ def fetch_image_urls(query, limit=8, start=0, provider="google"):
     """
     Fetches image URLs from specified provider based on a search query.
     """
+    logger.debug(f"fetch_image_urls called: query='{query}', limit={limit}, start={start}, provider='{provider}'")
+    
     if not query or not query.strip():
         return []
 
     if provider == "google":
-        return _fetch_google(query, limit, start)
+        results = _fetch_google(query, limit, start)
     elif provider == "bing":
-        return _fetch_bing(query, limit, start)
+        results = _fetch_bing(query, limit, start)
     elif provider == "duckduckgo":
-        return _fetch_duckduckgo(query, limit, start)
+        results = _fetch_duckduckgo(query, limit, start)
     else:
-        return []
+        logger.warning(f"Unknown provider: '{provider}'")
+        results = []
+    
+    logger.debug(f"fetch_image_urls returning {len(results)} results for provider '{provider}'")
+    return results
 
 def _fetch_google(query, limit=8, start=0):
     """
