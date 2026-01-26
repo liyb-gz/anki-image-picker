@@ -96,8 +96,8 @@ def test_fetch_image_urls_bing(mock_get):
     assert "https://example.com/bing2.jpg" in urls
     assert "bing" in mock_get.call_args[0][0]
 
-@patch('requests.get')
-def test_fetch_image_urls_duckduckgo(mock_get):
+@patch('requests.Session')
+def test_fetch_image_urls_duckduckgo(mock_session_class):
     # Mock response for DuckDuckGo
     # First call: main page with vqd
     mock_main_html = '<html><script>vqd="12345-67890";</script></html>'
@@ -112,22 +112,29 @@ def test_fetch_image_urls_duckduckgo(mock_get):
     mock_response_main = MagicMock()
     mock_response_main.status_code = 200
     mock_response_main.text = mock_main_html
+    mock_response_main.raise_for_status = MagicMock()
     
     mock_response_json = MagicMock()
     mock_response_json.status_code = 200
     mock_response_json.json.return_value = mock_json_response
+    mock_response_json.raise_for_status = MagicMock()
     
-    mock_get.side_effect = [mock_response_main, mock_response_json]
+    # Create mock session instance
+    mock_session = MagicMock()
+    mock_session.get.side_effect = [mock_response_main, mock_response_json]
+    mock_session_class.return_value = mock_session
 
     urls = fetch_image_urls("test query", provider="duckduckgo")
     
     assert "https://example.com/ddg1.jpg" in urls
     assert "https://example.com/ddg2.jpg" in urls
-    assert "duckduckgo.com" in mock_get.call_args_list[0][0][0]
-    assert mock_get.call_args_list[1].kwargs['params']['vqd'] == "12345-67890"
+    # Check first call was to duckduckgo.com
+    assert "duckduckgo.com" in mock_session.get.call_args_list[0][0][0]
+    # Check second call has correct vqd
+    assert mock_session.get.call_args_list[1][1]['params']['vqd'] == "12345-67890"
 
-@patch('requests.get')
-def test_fetch_image_urls_duckduckgo_pagination(mock_get):
+@patch('requests.Session')
+def test_fetch_image_urls_duckduckgo_pagination(mock_session_class):
     # Mock response for DuckDuckGo with pagination
     mock_main_html = '<html><script>vqd="pagination-token";</script></html>'
     mock_json_response = {"results": [{"image": "https://example.com/paged.jpg"}]}
@@ -135,16 +142,21 @@ def test_fetch_image_urls_duckduckgo_pagination(mock_get):
     mock_response_main = MagicMock()
     mock_response_main.status_code = 200
     mock_response_main.text = mock_main_html
+    mock_response_main.raise_for_status = MagicMock()
     
     mock_response_json = MagicMock()
     mock_response_json.status_code = 200
     mock_response_json.json.return_value = mock_json_response
+    mock_response_json.raise_for_status = MagicMock()
     
-    mock_get.side_effect = [mock_response_main, mock_response_json]
+    # Create mock session instance
+    mock_session = MagicMock()
+    mock_session.get.side_effect = [mock_response_main, mock_response_json]
+    mock_session_class.return_value = mock_session
 
     start_offset = 20
     urls = fetch_image_urls("test query", provider="duckduckgo", start=start_offset)
     
     # Check if the 's' parameter (offset) was passed correctly in the second call
-    assert mock_get.call_args_list[1].kwargs['params']['s'] == start_offset
+    assert mock_session.get.call_args_list[1][1]['params']['s'] == start_offset
     assert "https://example.com/paged.jpg" in urls

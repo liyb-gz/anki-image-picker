@@ -307,15 +307,27 @@ def _fetch_bing(query, limit=8, start=0):
 def _fetch_duckduckgo(query, limit=8, start=0):
     """
     Fetches image URLs from DuckDuckGo.
-    Uses vqd token and i.js endpoint.
+    Uses vqd token and i.js endpoint with session cookies.
     Supports pagination via 's' parameter.
     """
-    # Step 1: Get vqd token
+    # DuckDuckGo requires a session to maintain cookies and proper headers
+    session = requests.Session()
+    
+    # Step 1: Get initial page to obtain vqd token and cookies
     search_url = "https://duckduckgo.com/"
     search_params = {"q": query, "iax": "images", "ia": "images"}
     
-    response = _make_request(search_url, params=search_params)
-    if not response:
+    initial_headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+    }
+    
+    try:
+        response = session.get(search_url, params=search_params, headers=initial_headers, timeout=15)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        logger.error(f"DuckDuckGo initial request failed: {e}")
         return []
     
     vqd_match = re.search(r"vqd=['\"]?([a-zA-Z0-9-]+)['\"]?", response.text)
@@ -325,7 +337,7 @@ def _fetch_duckduckgo(query, limit=8, start=0):
     
     vqd = vqd_match.group(1)
     
-    # Step 2: Fetch images JSON
+    # Step 2: Fetch images JSON with proper AJAX headers
     json_url = "https://duckduckgo.com/i.js"
     json_params = {
         "l": "us-en",
@@ -333,11 +345,23 @@ def _fetch_duckduckgo(query, limit=8, start=0):
         "q": query,
         "vqd": vqd,
         "f": ",,,",
+        "p": "1",
         "s": start  # Offset for pagination
     }
     
-    response = _make_request(json_url, params=json_params)
-    if not response:
+    api_headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Referer": "https://duckduckgo.com/",
+        "X-Requested-With": "XMLHttpRequest",
+    }
+    
+    try:
+        response = session.get(json_url, params=json_params, headers=api_headers, timeout=15)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        logger.error(f"DuckDuckGo API request failed: {e}")
         return []
     
     try:
