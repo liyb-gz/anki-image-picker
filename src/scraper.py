@@ -53,20 +53,14 @@ def _is_blocked_domain(url):
         return False
     url_lower = url.lower()
     
-    # Domains that frequently return HTML/403/redirects for direct image access
+    # Only block domains that consistently return 403/HTML for ALL image requests.
+    # Note: Stock photo sites like shutterstock.com/dreamstime.com are NOT blocked
+    # because Google provides links to their thumbnail/preview images which work fine.
     blocked_patterns = [
+        # Pinterest aggressively blocks all hotlinking with 403
         "pinterest.com",
         "pinterest.",
-        "pinimg.com",  # Pinterest CDN often requires referrer
-        "shutterstock.com",
-        "gettyimages.com",
-        "istockphoto.com",
-        "alamy.com",
-        "dreamstime.com",
-        "123rf.com",
-        "depositphotos.com",
-        "stock.adobe.com",
-        "fotolia.com",
+        "pinimg.com",
         # Social media that blocks hotlinking
         "facebook.com",
         "fbcdn.net",
@@ -111,16 +105,14 @@ def _is_image_url(url):
             return True
     
     # Known image CDN patterns that may not have extensions
+    # These are specific CDN domains, not generic path patterns
     image_cdn_patterns = [
         "images.unsplash.com",
         "i.imgur.com",
         "pbs.twimg.com",
         "cdn.pixabay.com",
-        "/photo/",
-        "/image/",
-        "/img/",
         "imagecdn",
-        "imgix",
+        "imgix.net",
     ]
     if any(pattern in url_lower for pattern in image_cdn_patterns):
         return True
