@@ -66,6 +66,10 @@ def _is_blocked_domain(url):
         "fbcdn.net",
         "instagram.com",
         "cdninstagram.com",
+        # Sites that consistently return 403 for direct image access
+        "creativefabrica.com",
+        "freevector.com",
+        "cleanpng.com",
     ]
     return any(pattern in url_lower for pattern in blocked_patterns)
 
@@ -90,31 +94,32 @@ def _is_image_url(url):
     
     image_extensions = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".avif", ".svg"]
     
-    # Check if path ends with image extension
+    # Check if path ENDS with image extension (most reliable)
     if any(path_part.endswith(ext) for ext in image_extensions):
         return True
     
-    # Check if extension appears in the path (e.g., /image.jpg/resize)
-    if any(ext in path_part for ext in image_extensions):
-        return True
-    
-    # Check query params for image extensions (e.g., ?file=image.jpg)
-    if "?" in url_lower:
-        query_part = url_lower.split("?")[1]
-        if any(ext in query_part for ext in image_extensions):
+    # Check for extensions followed by / (CDN resizing patterns like /image.jpg/resize)
+    for ext in image_extensions:
+        if ext + "/" in path_part:
             return True
     
-    # Known image CDN patterns that may not have extensions
-    # These are specific CDN domains, not generic path patterns
-    image_cdn_patterns = [
+    # Check query params for image extensions with proper boundary
+    # Match extension at end of a param value (before & or end of string)
+    if "?" in url_lower:
+        query_part = url_lower.split("?")[1]
+        for ext in image_extensions:
+            # Look for extension followed by & or at end of query string
+            if re.search(rf'{re.escape(ext)}(?:&|$)', query_part):
+                return True
+    
+    # Known image CDN domains that serve images without extensions
+    image_cdn_domains = [
         "images.unsplash.com",
         "i.imgur.com",
         "pbs.twimg.com",
         "cdn.pixabay.com",
-        "imagecdn",
-        "imgix.net",
     ]
-    if any(pattern in url_lower for pattern in image_cdn_patterns):
+    if any(cdn in url_lower for cdn in image_cdn_domains):
         return True
     
     return False
@@ -313,6 +318,7 @@ def _fetch_duckduckgo(query, limit=8, start=0):
     """
     import urllib.request
     import urllib.parse
+    import urllib.error
     import http.cookiejar
     
     # Create a cookie jar and opener to maintain session
