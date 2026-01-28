@@ -147,11 +147,15 @@ def _fetch_google(query, limit=8, start=0):
     """
     # Dynamically build tbs based on query
     # If query contains illustration-related terms, don't force itp:photo
-    illustration_terms = ["illustration", "drawing", "clipart", "vector", "sketch", "painting"]
-    is_illustration = any(term in query.lower() for term in illustration_terms)
+    non_photo_terms = [
+        "illustration", "drawing", "clipart", "vector", "sketch", "painting",
+        "anime", "cartoon", "icon", "logo", "diagram", "infographic", "art",
+        "comic", "manga", "pixel", "3d render", "cgi"
+    ]
+    is_non_photo = any(term in query.lower() for term in non_photo_terms)
     
     tbs = "ic:color"
-    if not is_illustration:
+    if not is_non_photo:
         tbs += ",itp:photo"
     
     params = {
