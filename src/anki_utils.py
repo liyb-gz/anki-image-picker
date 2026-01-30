@@ -138,15 +138,19 @@ def restore_field_content(note_id, field_name, content):
         print(f"Error restoring note {note_id}: {e}")
     return False
 
-ADDON_NAME = "anki_image_picker"
+def get_addon_name():
+    """Get the add-on folder name dynamically (works for both local dev and AnkiWeb installs)."""
+    import os
+    return os.path.basename(os.path.dirname(os.path.abspath(__file__)))
 
 class ConfigManager:
     def __init__(self):
         from aqt import mw
         self.mw = mw
+        self.addon_name = get_addon_name()
 
     def get_all_config(self):
-        return self.mw.addonManager.getConfig(ADDON_NAME) or {}
+        return self.mw.addonManager.getConfig(self.addon_name) or {}
 
     def get_note_type_config(self, model_name):
         config = self.get_all_config()
@@ -157,7 +161,7 @@ class ConfigManager:
         if "models" not in config:
             config["models"] = {}
         config["models"][model_name] = model_config
-        self.mw.addonManager.writeConfig(ADDON_NAME, config)
+        self.mw.addonManager.writeConfig(self.addon_name, config)
 
     def get_global_defaults(self):
         config = self.get_all_config()
