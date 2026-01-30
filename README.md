@@ -2,6 +2,8 @@
 
 Quickly add images from web search to your Anki flashcards. Select multiple notes, pick images interactively from a grid, and move on - no blind batch downloads.
 
+![Picker Dialog](assets/picker.jpeg)
+
 ## Features
 
 - **Interactive selection** - See thumbnails before adding, pick with a click or keyboard (1-8)
@@ -31,6 +33,9 @@ Quickly add images from web search to your Anki flashcards. Select multiple note
    - **Source field** - Field containing search terms (e.g., "Word")
    - **Target field** - Where images will be added (e.g., "Picture")
    - **Mode** - Replace, Append, or Skip existing images
+
+![Configuration Dialog](assets/preflight.jpeg)
+
 4. Click an image or press **1-8** to select and advance
 5. Use **Skip** to skip a card, **Back** to revisit previous cards
 
