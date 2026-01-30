@@ -15,11 +15,11 @@ Quickly add images from web search to your Anki flashcards. Select multiple note
 
 ### From AnkiWeb (Recommended)
 1. Open Anki → Tools → Add-ons → Get Add-ons...
-2. Enter code: `XXXXXXXXX`
+2. Enter code: `647779979`
 3. Restart Anki
 
-### Manual Installation
-1. Download the latest release from [GitHub Releases](link)
+### Manual Installation (to be added)
+1. Download the latest release from GitHub Releases
 2. Extract to your Anki add-ons folder
 3. Restart Anki
 
