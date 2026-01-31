@@ -61,7 +61,7 @@ def on_quick_image_picker(browser):
     picker.exec()
 
 def setup_menu(browser):
-    action = QAction("Quick Image Picker...", browser)
+    action = QAction("Anki Image Picker...", browser)
     action.triggered.connect(lambda: on_quick_image_picker(browser))
     browser.form.menuEdit.addAction(action)
 
@@ -70,7 +70,7 @@ def on_browser_context_menu(browser, menu):
     if not selected_notes:
         return
         
-    action = menu.addAction("Quick Image Picker...")
+    action = menu.addAction("Anki Image Picker...")
     action.triggered.connect(lambda: on_quick_image_picker(browser))
 
 def init():

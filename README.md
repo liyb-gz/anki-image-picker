@@ -28,7 +28,7 @@ Quickly add images from web search to your Anki flashcards. Select multiple note
 ## Usage
 
 1. In the **Browser**, select one or more notes
-2. Right-click → **Quick Image Picker...**
+2. Right-click → **Anki Image Picker...**
 3. Configure:
    - **Source field** - Field containing search terms (e.g., "Word")
    - **Target field** - Where images will be added (e.g., "Picture")
