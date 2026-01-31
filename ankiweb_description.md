@@ -29,4 +29,4 @@ Anki 2.1.54+ (Qt6)
 
 ## Source Code
 
-[https://github.com/liyb-gz/anki-image-picker]()
+<https://github.com/liyb-gz/anki-image-picker>
