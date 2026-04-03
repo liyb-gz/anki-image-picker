@@ -9,6 +9,13 @@ from bs4 import BeautifulSoup
 # Configure logging
 logger = logging.getLogger(__name__)
 
+PROVIDER_DISPLAY_NAMES = {
+    "bing": "Bing",
+    "duckduckgo": "DuckDuckGo",
+    "serpapi": "Google (SerpApi)",
+    "serper": "Google (Serper)",
+}
+
 def _get_headers():
     """Returns common headers for requests."""
     return {

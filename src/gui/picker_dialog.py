@@ -146,14 +146,16 @@ class PickerDialog(QDialog):
         self.search_button = QPushButton("Search")
         self.search_button.clicked.connect(self.start_fetching)
         
+        from ..scraper import PROVIDER_DISPLAY_NAMES
         self.provider_combo = QComboBox()
-        providers = ["bing", "duckduckgo"]
+        provider_ids = ["bing", "duckduckgo"]
         if self.api_keys.get("serpapi_key"):
-            providers.append("serpapi")
+            provider_ids.append("serpapi")
         if self.api_keys.get("serper_key"):
-            providers.append("serper")
-        self.provider_combo.addItems(providers)
-        self.provider_combo.currentTextChanged.connect(self.on_provider_changed)
+            provider_ids.append("serper")
+        for pid in provider_ids:
+            self.provider_combo.addItem(PROVIDER_DISPLAY_NAMES.get(pid, pid), pid)
+        self.provider_combo.currentIndexChanged.connect(self.on_provider_changed)
         
         self.progress_label = QLabel()
         self.status_label = QLabel()
@@ -266,7 +268,9 @@ class PickerDialog(QDialog):
         
         provider = config.get("preferred_provider", self.preferred_provider)
         self.provider_combo.blockSignals(True)
-        self.provider_combo.setCurrentText(provider)
+        idx = self.provider_combo.findData(provider)
+        if idx >= 0:
+            self.provider_combo.setCurrentIndex(idx)
         self.provider_combo.blockSignals(False)
         
         self.progress_label.setText(f"Card {self.current_index + 1} of {len(self.notes)}")
@@ -335,12 +339,14 @@ class PickerDialog(QDialog):
             self.search_input.setText(text)
             self.start_fetching()
 
-    def on_provider_changed(self, text):
-        self.preferred_provider = text
-        # Update shared config if it exists
+    def on_provider_changed(self, index):
+        provider_id = self.provider_combo.currentData()
+        if not provider_id:
+            return
+        self.preferred_provider = provider_id
         if self.notes and self.current_index < len(self.notes):
             config = self.notes[self.current_index].get("config", {})
-            config["preferred_provider"] = text
+            config["preferred_provider"] = provider_id
         self.start_fetching()
 
     def start_fetching(self):
@@ -375,7 +381,7 @@ class PickerDialog(QDialog):
         if suffix and suffix.lower() not in full_query.lower():
             full_query += f" {suffix}"
 
-        provider = self.provider_combo.currentText()
+        provider = self.provider_combo.currentData()
         request_id = self._current_request_id
 
         api_key = ""

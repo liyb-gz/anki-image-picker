@@ -43,19 +43,22 @@ class ConfigDialog(QDialog):
         layout.addLayout(suffix_layout)
 
         # Preferred Provider (API-based providers only shown when keys are configured)
+        from ..scraper import PROVIDER_DISPLAY_NAMES
         provider_layout = QHBoxLayout()
         provider_layout.addWidget(QLabel("Preferred Provider:"))
         self.provider_combo = QComboBox()
-        providers = ["bing", "duckduckgo"]
+        provider_ids = ["bing", "duckduckgo"]
         if self.initial_config.get("serpapi_key"):
-            providers.append("serpapi")
+            provider_ids.append("serpapi")
         if self.initial_config.get("serper_key"):
-            providers.append("serper")
-        self.provider_combo.addItems(providers)
+            provider_ids.append("serper")
+        for pid in provider_ids:
+            self.provider_combo.addItem(PROVIDER_DISPLAY_NAMES.get(pid, pid), pid)
         
         provider_val = self.initial_config.get("preferred_provider", "bing")
-        if provider_val in providers:
-            self.provider_combo.setCurrentText(provider_val)
+        idx = self.provider_combo.findData(provider_val)
+        if idx >= 0:
+            self.provider_combo.setCurrentIndex(idx)
         
         provider_layout.addWidget(self.provider_combo)
         layout.addLayout(provider_layout)
@@ -183,7 +186,7 @@ class ConfigDialog(QDialog):
             "search_suffix": self.suffix_edit.text(),
             "max_width": self.width_spin.value(),
             "max_height": self.height_spin.value(),
-            "preferred_provider": self.provider_combo.currentText(),
+            "preferred_provider": self.provider_combo.currentData(),
             "mode": mode_map.get(checked_id, "replace")
         }
 
