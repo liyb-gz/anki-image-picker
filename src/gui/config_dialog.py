@@ -42,14 +42,20 @@ class ConfigDialog(QDialog):
         suffix_layout.addWidget(self.suffix_edit)
         layout.addLayout(suffix_layout)
 
-        # Preferred Provider
+        # Preferred Provider (API-based providers only shown when keys are configured)
         provider_layout = QHBoxLayout()
         provider_layout.addWidget(QLabel("Preferred Provider:"))
         self.provider_combo = QComboBox()
-        self.provider_combo.addItems(["bing", "duckduckgo"])
+        providers = ["bing", "duckduckgo"]
+        if self.initial_config.get("serpapi_key"):
+            providers.append("serpapi")
+        if self.initial_config.get("serper_key"):
+            providers.append("serper")
+        self.provider_combo.addItems(providers)
         
         provider_val = self.initial_config.get("preferred_provider", "bing")
-        self.provider_combo.setCurrentText(provider_val)
+        if provider_val in providers:
+            self.provider_combo.setCurrentText(provider_val)
         
         provider_layout.addWidget(self.provider_combo)
         layout.addLayout(provider_layout)

@@ -8,12 +8,12 @@ Quickly add images from web search to your Anki flashcards. Select multiple note
 
 - **Interactive selection** - See thumbnails before adding, pick with a click or keyboard (1-8)
 - **Batch processing** - Select multiple notes, process them one by one
-- **Multiple search providers** - Bing or DuckDuckGo
+- **Multiple search providers** - Bing, DuckDuckGo, or Google Images via API (bring your own key)
 - **Smart search** - Auto-strips HTML and cloze markers from search terms
 - **Field context** - Use other fields to refine searches on the fly
 - **Session control** - Go back, skip, abort, or revert all changes
 
-> **Note on Google Images:** Google Image Search was previously supported but Google has migrated to fully client-side JavaScript rendering, making HTTP-based scraping impossible without a headless browser. Bing and DuckDuckGo remain reliable alternatives.
+> **Note on Google Images:** Direct scraping of Google Images is no longer possible (Google now requires full client-side JavaScript rendering). However, you can still search Google Images by providing your own API key from [SerpApi](https://serpapi.com/) or [Serper.dev](https://serper.dev/). See [Google Images via API](#google-images-via-api) below.
 
 ## Installation
 
@@ -42,6 +42,27 @@ Quickly add images from web search to your Anki flashcards. Select multiple note
 5. Use **Skip** to skip a card, **Back** to revisit previous cards
 
 Settings are remembered per note type, so you only need to configure once.
+
+## Google Images via API
+
+Google Images can be used through a paid API service. Both [SerpApi](https://serpapi.com/) and [Serper.dev](https://serper.dev/) offer free tiers, so you can try them without paying.
+
+### Setup
+
+1. Sign up for an API key:
+   - **SerpApi** — [serpapi.com](https://serpapi.com/) (100 free searches/month)
+   - **Serper.dev** — [serper.dev](https://serper.dev/) (2,500 free queries on signup)
+2. In Anki, go to **Tools → Add-ons**, select **Anki Image Picker**, and click **Config**
+3. Add your API key(s) to the JSON config:
+   ```json
+   {
+       "serpapi_key": "your_serpapi_key_here",
+       "serper_key": "your_serper_key_here"
+   }
+   ```
+4. Restart Anki. The new provider(s) will appear in the provider dropdown — only when a key is configured.
+
+You can set up one or both services. If you don't add any API keys, everything works as before with Bing and DuckDuckGo.
 
 ## Keyboard Shortcuts
 

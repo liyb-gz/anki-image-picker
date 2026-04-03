@@ -124,7 +124,7 @@ def _is_image_url(url):
     
     return False
 
-def fetch_image_urls(query, limit=8, start=0, provider="bing"):
+def fetch_image_urls(query, limit=8, start=0, provider="bing", api_key=""):
     """
     Fetches image URLs from specified provider based on a search query.
     """
@@ -142,6 +142,10 @@ def fetch_image_urls(query, limit=8, start=0, provider="bing"):
         results = _fetch_bing(query, limit, start)
     elif provider == "duckduckgo":
         results = _fetch_duckduckgo(query, limit, start)
+    elif provider == "serpapi":
+        results = _fetch_serpapi(query, limit, start, api_key)
+    elif provider == "serper":
+        results = _fetch_serper(query, limit, start, api_key)
     else:
         results = []
     return results
@@ -317,6 +321,74 @@ def _fetch_bing(query, limit=8, start=0):
             except json.JSONDecodeError:
                 continue
     
+    return results[:limit]
+
+def _fetch_serpapi(query, limit=8, start=0, api_key=""):
+    """Fetches image URLs from Google Images via SerpApi (requires API key)."""
+    if not api_key:
+        logger.error("SerpApi requires an API key. Set it in Tools > Add-ons > Config.")
+        return []
+
+    params = {
+        "engine": "google_images",
+        "q": query,
+        "api_key": api_key,
+        "ijn": start // 100,
+        "num": limit,
+    }
+
+    try:
+        response = requests.get("https://serpapi.com/search", params=params, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+    except requests.RequestException as e:
+        logger.error(f"SerpApi request failed: {e}")
+        return []
+
+    if "error" in data:
+        logger.error(f"SerpApi error: {data['error']}")
+        return []
+
+    results = []
+    for item in data.get("images_results", []):
+        url = item.get("original")
+        if url and _is_image_url(url):
+            results.append(url)
+    return results[:limit]
+
+def _fetch_serper(query, limit=8, start=0, api_key=""):
+    """Fetches image URLs from Google Images via Serper.dev (requires API key)."""
+    if not api_key:
+        logger.error("Serper requires an API key. Set it in Tools > Add-ons > Config.")
+        return []
+
+    headers = {
+        "X-API-KEY": api_key,
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "q": query,
+        "num": limit,
+    }
+    if start > 0:
+        payload["page"] = (start // limit) + 1
+
+    try:
+        response = requests.post(
+            "https://google.serper.dev/images",
+            headers=headers, json=payload, timeout=15
+        )
+        response.raise_for_status()
+        data = response.json()
+    except requests.RequestException as e:
+        logger.error(f"Serper request failed: {e}")
+        return []
+
+    results = []
+    for item in data.get("images", []):
+        url = item.get("imageUrl")
+        if url and _is_image_url(url):
+            results.append(url)
     return results[:limit]
 
 def _fetch_duckduckgo(query, limit=8, start=0):

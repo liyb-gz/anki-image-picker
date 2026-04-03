@@ -116,6 +116,50 @@ def test_fetch_image_urls_duckduckgo(mock_build_opener):
     assert "https://example.com/ddg1.jpg" in urls
     assert "https://example.com/ddg2.jpg" in urls
 
+@patch('requests.get')
+def test_fetch_serpapi(mock_get):
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "images_results": [
+            {"original": "https://example.com/serpapi1.jpg"},
+            {"original": "https://example.com/serpapi2.png"},
+        ]
+    }
+    mock_get.return_value = mock_response
+
+    urls = fetch_image_urls("test query", provider="serpapi", api_key="fake-key")
+
+    assert "https://example.com/serpapi1.jpg" in urls
+    assert "https://example.com/serpapi2.png" in urls
+    assert "serpapi.com" in mock_get.call_args[0][0]
+
+def test_fetch_serpapi_no_key():
+    urls = fetch_image_urls("test query", provider="serpapi", api_key="")
+    assert urls == []
+
+@patch('requests.post')
+def test_fetch_serper(mock_post):
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "images": [
+            {"imageUrl": "https://example.com/serper1.jpg"},
+            {"imageUrl": "https://example.com/serper2.png"},
+        ]
+    }
+    mock_post.return_value = mock_response
+
+    urls = fetch_image_urls("test query", provider="serper", api_key="fake-key")
+
+    assert "https://example.com/serper1.jpg" in urls
+    assert "https://example.com/serper2.png" in urls
+    assert "serper.dev" in mock_post.call_args[0][0]
+
+def test_fetch_serper_no_key():
+    urls = fetch_image_urls("test query", provider="serper", api_key="")
+    assert urls == []
+
 @patch('urllib.request.build_opener')
 def test_fetch_image_urls_duckduckgo_pagination(mock_build_opener):
     # Mock response for DuckDuckGo with pagination

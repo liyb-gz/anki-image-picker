@@ -57,7 +57,11 @@ def on_quick_image_picker(browser):
         
     # 4. Open Picker Dialog
     preferred_provider = config.get("preferred_provider", "bing")
-    picker = PickerDialog(notes_data, preferred_provider=preferred_provider, parent=browser)
+    api_keys = {
+        "serpapi_key": global_defaults.get("serpapi_key", ""),
+        "serper_key": global_defaults.get("serper_key", ""),
+    }
+    picker = PickerDialog(notes_data, preferred_provider=preferred_provider, api_keys=api_keys, parent=browser)
     picker.exec()
 
 def setup_menu(browser):

@@ -25,17 +25,18 @@ class ImageFetcher(QThread):
     finished = pyqtSignal(list, int)
     error = pyqtSignal(str, int)
 
-    def __init__(self, query, limit=8, start_index=0, provider="google", request_id=0):
+    def __init__(self, query, limit=8, start_index=0, provider="bing", api_key="", request_id=0):
         super().__init__()
         self.query = query
         self.limit = limit
         self.start_index = start_index
         self.provider = provider
+        self.api_key = api_key
         self.request_id = request_id
 
     def run(self):
         try:
-            urls = fetch_image_urls(self.query, limit=self.limit, start=self.start_index, provider=self.provider)
+            urls = fetch_image_urls(self.query, limit=self.limit, start=self.start_index, provider=self.provider, api_key=self.api_key)
             self.finished.emit(urls, self.request_id)
         except Exception as e:
             self.error.emit(str(e), self.request_id)
@@ -111,10 +112,11 @@ class ThumbnailWorker(QRunnable):
             self.signals.finished.emit(self.label, b"", "error", self.url)
 
 class PickerDialog(QDialog):
-    def __init__(self, notes, preferred_provider="bing", parent=None):
+    def __init__(self, notes, preferred_provider="bing", api_keys=None, parent=None):
         super().__init__(parent)
         self.notes = notes
         self.preferred_provider = preferred_provider
+        self.api_keys = api_keys or {}
         self.current_index = 0
         self.current_offset = 0
         self.seen_urls = set()
@@ -145,7 +147,12 @@ class PickerDialog(QDialog):
         self.search_button.clicked.connect(self.start_fetching)
         
         self.provider_combo = QComboBox()
-        self.provider_combo.addItems(["bing", "duckduckgo"])
+        providers = ["bing", "duckduckgo"]
+        if self.api_keys.get("serpapi_key"):
+            providers.append("serpapi")
+        if self.api_keys.get("serper_key"):
+            providers.append("serper")
+        self.provider_combo.addItems(providers)
         self.provider_combo.currentTextChanged.connect(self.on_provider_changed)
         
         self.progress_label = QLabel()
@@ -371,16 +378,22 @@ class PickerDialog(QDialog):
         provider = self.provider_combo.currentText()
         request_id = self._current_request_id
 
+        api_key = ""
+        if provider == "serpapi":
+            api_key = self.api_keys.get("serpapi_key", "")
+        elif provider == "serper":
+            api_key = self.api_keys.get("serper_key", "")
+
         self.search_input.setStyleSheet("")
         self.status_label.setText("Searching...")
 
         if mw:
             mw.taskman.run_in_background(
-                lambda: fetch_image_urls(full_query, limit=12, start=self.current_offset, provider=provider),
+                lambda: fetch_image_urls(full_query, limit=12, start=self.current_offset, provider=provider, api_key=api_key),
                 lambda res: self.on_images_fetched(res, request_id)
             )
         else:
-            fetcher = ImageFetcher(full_query, limit=12, start_index=self.current_offset, provider=provider, request_id=request_id)
+            fetcher = ImageFetcher(full_query, limit=12, start_index=self.current_offset, provider=provider, api_key=api_key, request_id=request_id)
             self._running_threads.append(fetcher)
             fetcher.finished.connect(self.on_images_fetched)
             fetcher.error.connect(self.on_fetch_error)

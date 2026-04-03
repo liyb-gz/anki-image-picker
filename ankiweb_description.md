@@ -6,7 +6,7 @@ Quickly add images from web search to your Anki flashcards. Unlike batch downloa
 
 - **Interactive selection** - See thumbnails before adding, pick with a click or keyboard (1-8)
 - **Batch processing** - Select multiple notes, process them one by one
-- **Multiple search providers** - Bing or DuckDuckGo (Google was removed — they now require full JavaScript rendering, making scraping impossible)
+- **Multiple search providers** - Bing, DuckDuckGo, or Google Images via API (bring your own key from <a href="https://serpapi.com/">SerpApi</a> or <a href="https://serper.dev/">Serper.dev</a>)
 - **Smart search** - Auto-strips HTML and cloze markers from search terms
 - **Field context** - Use other fields to refine searches on the fly
 - **Session control** - Go back, skip, abort, or revert all changes
@@ -22,6 +22,10 @@ Quickly add images from web search to your Anki flashcards. Unlike batch downloa
 4. Click an image or press 1-8 to select and advance
 
 Settings are remembered per note type.
+
+## Google Images (Optional)
+
+To use Google Images, get a free API key from <a href="https://serpapi.com/">SerpApi</a> or <a href="https://serper.dev/">Serper.dev</a>, then add it in Tools → Add-ons → Config. The provider will appear in the dropdown once a key is set. No key needed for Bing/DuckDuckGo.
 
 ## Requirements
 

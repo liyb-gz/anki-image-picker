@@ -170,5 +170,7 @@ class ConfigManager:
             "search_suffix": config.get("search_suffix", ""),
             "max_width": config.get("max_width", 320),
             "max_height": config.get("max_height", 320),
-            "preferred_provider": default_provider
+            "preferred_provider": default_provider,
+            "serpapi_key": config.get("serpapi_key", ""),
+            "serper_key": config.get("serper_key", ""),
         }
