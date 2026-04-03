@@ -8,10 +8,12 @@ Quickly add images from web search to your Anki flashcards. Select multiple note
 
 - **Interactive selection** - See thumbnails before adding, pick with a click or keyboard (1-8)
 - **Batch processing** - Select multiple notes, process them one by one
-- **Multiple search providers** - Google, Bing, or DuckDuckGo
+- **Multiple search providers** - Bing or DuckDuckGo
 - **Smart search** - Auto-strips HTML and cloze markers from search terms
 - **Field context** - Use other fields to refine searches on the fly
 - **Session control** - Go back, skip, abort, or revert all changes
+
+> **Note on Google Images:** Google Image Search was previously supported but Google has migrated to fully client-side JavaScript rendering, making HTTP-based scraping impossible without a headless browser. Bing and DuckDuckGo remain reliable alternatives.
 
 ## Installation
 

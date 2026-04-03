@@ -124,7 +124,7 @@ def _is_image_url(url):
     
     return False
 
-def fetch_image_urls(query, limit=8, start=0, provider="google"):
+def fetch_image_urls(query, limit=8, start=0, provider="bing"):
     """
     Fetches image URLs from specified provider based on a search query.
     """
@@ -132,7 +132,12 @@ def fetch_image_urls(query, limit=8, start=0, provider="google"):
         return []
 
     if provider == "google":
-        results = _fetch_google(query, limit, start)
+        logger.warning(
+            "Google Image Search is no longer available. "
+            "Google now renders image results entirely via client-side JavaScript, "
+            "making HTTP-based scraping impossible. Falling back to Bing."
+        )
+        results = _fetch_bing(query, limit, start)
     elif provider == "bing":
         results = _fetch_bing(query, limit, start)
     elif provider == "duckduckgo":

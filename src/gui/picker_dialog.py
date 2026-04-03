@@ -111,7 +111,7 @@ class ThumbnailWorker(QRunnable):
             self.signals.finished.emit(self.label, b"", "error", self.url)
 
 class PickerDialog(QDialog):
-    def __init__(self, notes, preferred_provider="google", parent=None):
+    def __init__(self, notes, preferred_provider="bing", parent=None):
         super().__init__(parent)
         self.notes = notes
         self.preferred_provider = preferred_provider
@@ -145,7 +145,7 @@ class PickerDialog(QDialog):
         self.search_button.clicked.connect(self.start_fetching)
         
         self.provider_combo = QComboBox()
-        self.provider_combo.addItems(["google", "bing", "duckduckgo"])
+        self.provider_combo.addItems(["bing", "duckduckgo"])
         self.provider_combo.currentTextChanged.connect(self.on_provider_changed)
         
         self.progress_label = QLabel()

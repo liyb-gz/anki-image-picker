@@ -46,9 +46,9 @@ class ConfigDialog(QDialog):
         provider_layout = QHBoxLayout()
         provider_layout.addWidget(QLabel("Preferred Provider:"))
         self.provider_combo = QComboBox()
-        self.provider_combo.addItems(["google", "bing", "duckduckgo"])
+        self.provider_combo.addItems(["bing", "duckduckgo"])
         
-        provider_val = self.initial_config.get("preferred_provider", "google")
+        provider_val = self.initial_config.get("preferred_provider", "bing")
         self.provider_combo.setCurrentText(provider_val)
         
         provider_layout.addWidget(self.provider_combo)

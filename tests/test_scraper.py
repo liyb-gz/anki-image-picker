@@ -4,44 +4,18 @@ from src.scraper import fetch_image_urls
 
 @patch('requests.get')
 def test_fetch_image_urls_returns_list_of_urls(mock_get):
-    # Mock HTML response from Google Images with valid image URLs
     mock_html = """
     <html>
         <body>
-            <img src="/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png" alt="Google">
-            <table>
-                <tr>
-                    <td>
-                        <a href="/url?q=https://example.com/1"><img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD"></a>
-                    </td>
-                    <td>
-                        <a href="/url?q=https://example.com/2"><img src="https://example.com/image2.jpg"></a>
-                    </td>
-                    <td>
-                        <a href="/url?q=https://example.com/3"><img src="https://example.com/image3.png"></a>
-                    </td>
-                    <td>
-                        <a href="/url?q=https://example.com/4"><img src="https://example.com/image4.jpeg"></a>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        <a href="/url?q=https://example.com/5"><img src="https://example.com/image5.gif"></a>
-                    </td>
-                    <td>
-                        <a href="/url?q=https://example.com/6"><img src="https://example.com/image6.webp"></a>
-                    </td>
-                    <td>
-                        <a href="/url?q=https://example.com/7"><img src="https://example.com/image7.bmp"></a>
-                    </td>
-                    <td>
-                        <a href="/url?q=https://example.com/8"><img src="https://example.com/image8.jpg"></a>
-                    </td>
-                    <td>
-                        <a href="/url?q=https://example.com/9"><img src="https://example.com/image9.png"></a>
-                    </td>
-                </tr>
-            </table>
+            <a class="iusc" m='{"murl":"https://example.com/image1.jpg"}'></a>
+            <a class="iusc" m='{"murl":"https://example.com/image2.jpg"}'></a>
+            <a class="iusc" m='{"murl":"https://example.com/image3.png"}'></a>
+            <a class="iusc" m='{"murl":"https://example.com/image4.jpeg"}'></a>
+            <a class="iusc" m='{"murl":"https://example.com/image5.gif"}'></a>
+            <a class="iusc" m='{"murl":"https://example.com/image6.webp"}'></a>
+            <a class="iusc" m='{"murl":"https://example.com/image7.bmp"}'></a>
+            <a class="iusc" m='{"murl":"https://example.com/image8.jpg"}'></a>
+            <a class="iusc" m='{"murl":"https://example.com/image9.png"}'></a>
         </body>
     </html>
     """
@@ -55,8 +29,7 @@ def test_fetch_image_urls_returns_list_of_urls(mock_get):
     assert isinstance(urls, list)
     assert len(urls) == 8
     assert all(isinstance(url, str) for url in urls)
-    # First URL should be the data URI or one of the example.com images
-    assert urls[0].startswith("data:image/jpeg;base64") or "example.com" in urls[0]
+    assert "example.com" in urls[0]
 
 @patch('requests.get')
 def test_fetch_image_urls_handles_error(mock_get):
@@ -65,9 +38,27 @@ def test_fetch_image_urls_handles_error(mock_get):
     mock_response.text = "Not Found"
     mock_get.return_value = mock_response
     
-    # We expect an empty list if there's an error status code or exception
     urls = fetch_image_urls("test query")
     assert urls == []
+
+@patch('requests.get')
+def test_google_provider_falls_back_to_bing(mock_get):
+    mock_html = """
+    <html>
+        <body>
+            <a class="iusc" m='{"murl":"https://example.com/bing_fallback.jpg"}'></a>
+        </body>
+    </html>
+    """
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.text = mock_html
+    mock_get.return_value = mock_response
+
+    urls = fetch_image_urls("test query", provider="google")
+    
+    assert "https://example.com/bing_fallback.jpg" in urls
+    assert "bing" in mock_get.call_args[0][0]
 
 def test_fetch_image_urls_empty_query():
     assert fetch_image_urls("") == []

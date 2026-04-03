@@ -165,7 +165,7 @@ class ConfigManager:
 
     def get_global_defaults(self):
         config = self.get_all_config()
-        default_provider = config.get("default_provider", "google")
+        default_provider = config.get("default_provider", "bing")
         return {
             "search_suffix": config.get("search_suffix", ""),
             "max_width": config.get("max_width", 320),
