@@ -120,6 +120,7 @@ class PickerDialog(QDialog):
         self.current_index = 0
         self.current_offset = 0
         self.seen_urls = set()
+        self._api_cache = []
         self.fetcher = None
         self.downloader = None
         self.threadpool = QThreadPool()
@@ -353,6 +354,7 @@ class PickerDialog(QDialog):
         self._current_request_id += 1
         self.current_offset = 0
         self.seen_urls = set()
+        self._api_cache = []
         self.clear_grid()
         self._fetch_images()
 
@@ -365,6 +367,11 @@ class PickerDialog(QDialog):
         else:
             self.current_offset += 12
         self._fetch_images()
+
+    def _is_api_provider(self, provider=None):
+        if provider is None:
+            provider = self.provider_combo.currentData()
+        return provider in ("serpapi", "serper")
 
     def _fetch_images(self):
         query = self.search_input.text()
@@ -383,6 +390,7 @@ class PickerDialog(QDialog):
 
         provider = self.provider_combo.currentData()
         request_id = self._current_request_id
+        is_api = self._is_api_provider(provider)
 
         api_key = ""
         if provider == "serpapi":
@@ -390,16 +398,26 @@ class PickerDialog(QDialog):
         elif provider == "serper":
             api_key = self.api_keys.get("serper_key", "")
 
+        # For API providers, serve from cache if available
+        if is_api and self.current_offset < len(self._api_cache):
+            page = self._api_cache[self.current_offset:self.current_offset + 12]
+            self._display_urls(page)
+            return
+
         self.search_input.setStyleSheet("")
         self.status_label.setText("Searching...")
 
+        # API providers: fetch large batch; scraping providers: fetch one page
+        fetch_limit = 100 if is_api else 12
+        fetch_start = len(self._api_cache) if is_api else self.current_offset
+
         if mw:
             mw.taskman.run_in_background(
-                lambda: fetch_image_urls(full_query, limit=12, start=self.current_offset, provider=provider, api_key=api_key),
+                lambda: fetch_image_urls(full_query, limit=fetch_limit, start=fetch_start, provider=provider, api_key=api_key),
                 lambda res: self.on_images_fetched(res, request_id)
             )
         else:
-            fetcher = ImageFetcher(full_query, limit=12, start_index=self.current_offset, provider=provider, api_key=api_key, request_id=request_id)
+            fetcher = ImageFetcher(full_query, limit=fetch_limit, start_index=fetch_start, provider=provider, api_key=api_key, request_id=request_id)
             self._running_threads.append(fetcher)
             fetcher.finished.connect(self.on_images_fetched)
             fetcher.error.connect(self.on_fetch_error)
@@ -407,8 +425,6 @@ class PickerDialog(QDialog):
             fetcher.start()
 
     def on_images_fetched(self, result, request_id=None):
-        # Handle both QThread signal (where request_id is passed as 2nd arg)
-        # and Anki taskman callback (where we pass it via lambda)
         if request_id is not None and request_id != self._current_request_id:
             return
 
@@ -422,8 +438,15 @@ class PickerDialog(QDialog):
             urls = result
 
         self.status_label.setText("")
-        
-        # Filter out already seen URLs to avoid duplicates in the grid
+
+        if self._is_api_provider():
+            self._api_cache.extend(urls)
+            page = self._api_cache[self.current_offset:self.current_offset + 12]
+            self._display_urls(page)
+        else:
+            self._display_urls(urls)
+
+    def _display_urls(self, urls):
         new_urls = [u for u in urls if u not in self.seen_urls]
         for u in new_urls:
             self.seen_urls.add(u)
@@ -440,7 +463,6 @@ class PickerDialog(QDialog):
         for i, url in enumerate(new_urls):
             total_idx = current_count + i
             label = ClickableImageLabel(url)
-            # Only add shortcuts for the first 8 items overall
             if total_idx < 8:
                 container = QVBoxLayout()
                 container.addWidget(label)

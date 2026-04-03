@@ -330,8 +330,10 @@ def _fetch_bing(query, limit=8, start=0):
     
     return results[:limit]
 
-def _fetch_serpapi(query, limit=8, start=0, api_key=""):
-    """Fetches image URLs from Google Images via SerpApi (requires API key)."""
+def _fetch_serpapi(query, limit=100, start=0, api_key=""):
+    """Fetches image URLs from Google Images via SerpApi (requires API key).
+    SerpApi returns ~100 results per page; pagination via ijn (page index).
+    """
     if not api_key:
         logger.error("SerpApi requires an API key. Set it in Tools > Add-ons > Config.")
         return []
@@ -341,7 +343,6 @@ def _fetch_serpapi(query, limit=8, start=0, api_key=""):
         "q": query,
         "api_key": api_key,
         "ijn": start // 100,
-        "num": limit,
     }
 
     try:
@@ -363,8 +364,10 @@ def _fetch_serpapi(query, limit=8, start=0, api_key=""):
             results.append(url)
     return results[:limit]
 
-def _fetch_serper(query, limit=8, start=0, api_key=""):
-    """Fetches image URLs from Google Images via Serper.dev (requires API key)."""
+def _fetch_serper(query, limit=100, start=0, api_key=""):
+    """Fetches image URLs from Google Images via Serper.dev (requires API key).
+    Serper supports num up to 100 and page-based pagination.
+    """
     if not api_key:
         logger.error("Serper requires an API key. Set it in Tools > Add-ons > Config.")
         return []
@@ -375,10 +378,10 @@ def _fetch_serper(query, limit=8, start=0, api_key=""):
     }
     payload = {
         "q": query,
-        "num": limit,
+        "num": min(limit, 100),
     }
     if start > 0:
-        payload["page"] = (start // limit) + 1
+        payload["page"] = (start // max(limit, 1)) + 1
 
     try:
         response = requests.post(
